@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Invitados - Plan y Fiesta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="admin.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        /* ================= HOJA TIPO EXCEL (computadora) ================= */
+        .hoja-scroll { max-height: calc(100vh - 210px); overflow: auto; }
+        .hoja { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1180px; font-size: 14px; }
+        .hoja thead th {
+            position: sticky; top: 0; z-index: 3;
+            background: #f8fafc; color: #64748b;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+            padding: 10px 10px; text-align: left; white-space: nowrap;
+            border-bottom: 2px solid #e2e8f0; border-right: 1px solid #eef2f7;
+        }
+        .hoja thead th.centro { text-align: center; }
+        .hoja td { padding: 0; border-bottom: 1px solid #eef2f7; border-right: 1px solid #eef2f7; vertical-align: middle; background: #fff; }
+        .hoja tbody tr:nth-child(even) td { background: #fcfdfe; }
+        .hoja tbody tr:hover td { background: #f5f7ff; }
+        .hoja tr[hidden] { display: none !important; }
+
+        .hoja .c-id { position: sticky; left: 0; z-index: 2; width: 104px; padding: 0 10px; white-space: nowrap; box-shadow: 1px 0 0 #e2e8f0; }
+        .hoja thead .c-id { z-index: 4; }
+        .codigo { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #4338ca; letter-spacing: .06em; font-size: 13px; }
+        .renglon { display: inline-block; width: 26px; color: #cbd5e1; font-size: 10px; font-weight: 600; }
+
+        .celda {
+            display: block; width: 100%; border: 0; background: transparent; color: #0f172a;
+            padding: 10px 10px; font: inherit; outline: none; border-radius: 0;
+            transition: box-shadow .12s, background .12s;
+        }
+        .celda::placeholder { color: #cbd5e1; }
+        .celda:focus { background: #fff !important; box-shadow: inset 0 0 0 2px #6366f1; position: relative; z-index: 1; }
+        .celda.numero { text-align: center; font-variant-numeric: tabular-nums; }
+        textarea.celda { resize: none; min-height: 41px; line-height: 1.35; field-sizing: content; max-height: 140px; }
+        .celda.aviso { background: #fff7ed; box-shadow: inset 0 0 0 1px #fdba74; }
+
+        .c-familia { width: 230px; }
+        .c-num { width: 78px; }
+        .c-nombres { min-width: 300px; }
+        .c-mesa { width: 84px; }
+        .c-enviar { width: 128px; padding: 0 8px !important; text-align: center; }
+        .c-enviado { width: 92px; text-align: center; }
+
+        /* Fila enviada (verde) y fila con cambios sin guardar (franja ámbar) */
+        .hoja tr.enviada td { background: #f0fdf4 !important; }
+        .hoja tr.enviada .celda { color: #64748b; }
+        .hoja tr.sucia .c-id { box-shadow: inset 4px 0 0 #f59e0b, 1px 0 0 #e2e8f0; }
+        .hoja tr.vacia .codigo { color: #94a3b8; }
+
+        .btn-copiar {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 100%;
+            font-size: 12px; font-weight: 700; color: #4f46e5; background: #eef2ff;
+            border: 1px solid #c7d2fe; border-radius: 8px; padding: 7px 8px; white-space: nowrap;
+            transition: background .15s, transform .1s;
+        }
+        .btn-copiar:hover { background: #e0e7ff; }
+        .btn-copiar:active { transform: scale(.97); }
+
+        .chk { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+        .chk input { position: absolute; opacity: 0; pointer-events: none; }
+        .chk .caja {
+            width: 24px; height: 24px; border-radius: 7px; border: 2px solid #cbd5e1; background: #fff;
+            display: grid; place-items: center; color: transparent; transition: all .15s;
+        }
+        .chk input:checked + .caja { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .chk input:focus-visible + .caja { box-shadow: 0 0 0 3px #a5b4fc; }
+        .chk .chk-texto { display: none; font-size: 13px; font-weight: 600; color: #64748b; }
+        .chk input:checked ~ .chk-texto { color: #15803d; }
+
+        /* ================= TARJETAS (celular / tableta vertical) ================= */
+        @media (max-width: 860px) {
+            .hoja-scroll { max-height: none; overflow: visible; }
+            .hoja, .hoja tbody { display: block; min-width: 0; }
+            .hoja thead { display: none; }
+            .hoja tbody tr {
+                display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px;
+                background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+                padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+                content-visibility: auto; contain-intrinsic-size: auto 330px;
+            }
+            .hoja tbody tr td, .hoja tbody tr:nth-child(even) td, .hoja tbody tr:hover td { background: transparent !important; border: 0; padding: 0; width: auto; min-width: 0; }
+            .hoja tr.enviada { background: #f0fdf4; border-color: #86efac; }
+            .hoja tr.sucia { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b; }
+            .hoja tr.sucia .c-id { box-shadow: none; }
+            .hoja td[data-label]::before {
+                content: attr(data-label); display: block; margin: 0 0 4px 2px;
+                font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em;
+            }
+            .hoja .c-id { position: static; grid-row: 1; grid-column: 1 / 3; display: flex; align-items: center; box-shadow: none !important; }
+            .hoja .c-id .codigo { font-size: 16px; background: #eef2ff; padding: 4px 10px; border-radius: 8px; }
+            .renglon { width: auto; margin-right: 8px; font-size: 11px; }
+            .hoja .c-enviado { grid-row: 1; grid-column: 3 / 5; display: flex; justify-content: flex-end; align-items: center; }
+            .chk .chk-texto { display: inline; }
+            .hoja .c-familia, .hoja .c-nombres { grid-column: 1 / -1; }
+            .hoja .c-mesa { grid-column: 1 / 2; }
+            .hoja .c-enviar { grid-column: 2 / -1; align-self: end; padding: 0 !important; }
+            .btn-copiar { padding: 11px 8px; font-size: 13px; }
+            .celda { border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; padding: 10px 11px; font-size: 16px; }
+            .celda:focus { box-shadow: 0 0 0 2px #6366f1; border-color: transparent; }
+            textarea.celda { min-height: 64px; }
+        }
+
+        /* ================= BOTÓN GUARDAR (siempre visible) ================= */
+        #barraGuardar {
+            position: fixed; z-index: 50; right: 24px; bottom: 24px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 22px 12px 16px; border-radius: 999px; border: 0; color: #fff;
+            box-shadow: 0 10px 30px -8px rgba(15, 23, 42, .45); cursor: pointer;
+            transition: background .2s, transform .15s;
+        }
+        #barraGuardar:active { transform: scale(.98); }
+        #barraGuardar .icono { font-size: 26px; line-height: 1; }
+        #barraGuardar .titulo { display: block; font-weight: 800; font-size: 15px; line-height: 1.1; text-align: left; }
+        #barraGuardar .detalle { display: block; font-size: 11px; opacity: .85; text-align: left; }
+        #barraGuardar[data-estado="guardado"] { background: #16a34a; cursor: default; }
+        #barraGuardar[data-estado="pendiente"] { background: #ea580c; animation: latido 1.8s infinite; }
+        #barraGuardar[data-estado="guardando"] { background: #4f46e5; cursor: wait; }
+        #barraGuardar[data-estado="error"] { background: #dc2626; }
+        #barraGuardar[data-estado="cargando"] { background: #64748b; cursor: wait; }
+        @keyframes latido {
+            0%, 100% { box-shadow: 0 10px 30px -8px rgba(15, 23, 42, .45), 0 0 0 0 rgba(234, 88, 12, .55); }
+            50% { box-shadow: 0 10px 30px -8px rgba(15, 23, 42, .45), 0 0 0 12px rgba(234, 88, 12, 0); }
+        }
+        @media (max-width: 860px) {
+            #barraGuardar { left: 12px; right: 12px; bottom: 12px; border-radius: 16px; justify-content: center; }
+        }
+
+        #toast {
+            position: fixed; z-index: 60; left: 50%; bottom: 96px; transform: translate(-50%, 20px);
+            opacity: 0; pointer-events: none; transition: all .25s;
+            background: #0f172a; color: #fff; border-radius: 12px; padding: 12px 16px;
+            display: flex; align-items: center; gap: 12px; font-size: 14px; max-width: calc(100vw - 24px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5);
+        }
+        #toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+        #toast button { color: #a5b4fc; font-weight: 700; white-space: nowrap; }
+
+        .chip { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: all .15s; }
+        .chip span { color: #94a3b8; font-weight: 700; margin-left: 4px; }
+        .chip.activo { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+        .chip.activo span { color: #c7d2fe; }
+        .chips { scrollbar-width: none; }
+        .chips::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <div class="max-w-[1400px] mx-auto p-4 md:p-6 space-y-6 pb-32">
+
+        <!-- ENCABEZADO -->
+        <header class="flex flex-col lg:flex-row justify-between lg:items-center bg-white p-5 md:p-6 rounded-2xl shadow-sm gap-5">
+            <div class="flex flex-col gap-2 min-w-0">
+                <a href="panel.html" class="text-xs font-semibold text-slate-400 hover:text-indigo-600 flex items-center gap-1 w-fit">
+                    <i class="ph ph-arrow-left"></i> Panel de control
+                </a>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Registro de Invitados</h1>
+                </div>
+                <button id="btnRefresh" onclick="recargar()" class="w-fit flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition font-bold text-xs">
+                    <i id="iconRefresh" class="ph ph-arrows-clockwise text-lg"></i>
+                    <span id="textRefresh">Actualizar</span>
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-4 bg-blue-50 px-5 py-3 rounded-xl border border-blue-100 flex-1 lg:flex-none">
+                    <div class="text-right flex-1">
+                        <p class="text-xs text-blue-500 font-bold uppercase">Invitaciones Enviadas</p>
+                        <p class="text-2xl font-bold text-blue-700">
+                            <span id="sentCount">0</span> <span class="text-sm text-blue-400">/ <span id="totalFamilies">0</span></span>
+                        </p>
+                    </div>
+                    <div class="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <i class="ph ph-paper-plane-tilt text-2xl"></i>
+                    </div>
+                </div>
+                <div class="text-right px-2">
+                    <span class="block text-xs text-gray-400 uppercase tracking-wider">Total Personas</span>
+                    <span id="totalDisplay" class="text-4xl font-bold text-gray-600">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ESTADÍSTICAS (igual que lista.html) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-4">
+                <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-blue-500">
+                    <div><p class="text-xs lg:text-sm text-gray-500">Adultos</p><p id="countAdultos" class="text-2xl font-bold text-gray-800">0</p></div>
+                    <i class="ph ph-user text-3xl text-blue-200 hidden sm:block"></i>
+                </div>
+                <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-yellow-500">
+                    <div><p class="text-xs lg:text-sm text-gray-500">Adolescentes</p><p id="countAdolescentes" class="text-2xl font-bold text-gray-800">0</p></div>
+                    <i class="ph ph-user-circle text-3xl text-yellow-200 hidden sm:block"></i>
+                </div>
+                <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-green-500">
+                    <div><p class="text-xs lg:text-sm text-gray-500">Niños</p><p id="countNinos" class="text-2xl font-bold text-gray-800">0</p></div>
+                    <i class="ph ph-baby text-3xl text-green-200 hidden sm:block"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm lg:col-span-2 flex flex-col justify-center items-center">
+                <h3 class="text-gray-500 font-semibold mb-4 w-full text-left">Distribución de Invitados</h3>
+                <div class="w-full h-56 md:h-64 relative">
+                    <canvas id="guestChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+        <div class="bg-white p-3 md:p-4 rounded-2xl shadow-sm sticky top-2 z-20 border border-slate-200 space-y-3">
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                    <input type="search" id="searchInput" autocomplete="off"
+                        class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition text-base"
+                        placeholder="Buscar por código, familia, nombres o mesa..." disabled>
+                </div>
+                <button id="btnAgregar" onclick="agregarFila()" title="Agregar un código nuevo al final"
+                    class="flex items-center gap-1.5 bg-slate-800 text-white px-3 md:px-4 rounded-xl hover:bg-slate-700 transition font-bold text-sm whitespace-nowrap">
+                    <i class="ph ph-plus-circle text-lg"></i><span class="hidden sm:inline">Agregar fila</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="chips" class="chips flex gap-2 overflow-x-auto flex-1"></div>
+                <span id="contadorVisible" class="text-xs text-slate-400 whitespace-nowrap hidden md:inline"></span>
+            </div>
+        </div>
+
+        <!-- HOJA -->
+        <div class="bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-200 overflow-hidden max-[860px]:bg-transparent">
+            <div class="hoja-scroll">
+                <table class="hoja">
+                    <thead>
+                        <tr>
+                            <th class="c-id">ID</th>
+                            <th class="c-familia">Familia o Nombre</th>
+                            <th class="c-num centro">Total</th>
+                            <th class="c-num centro text-blue-600">Adultos</th>
+                            <th class="c-num centro text-yellow-600">Adolesc.</th>
+                            <th class="c-num centro text-green-600">Niños</th>
+                            <th class="c-nombres">Nombres de los invitados</th>
+                            <th class="c-mesa centro"># Mesa</th>
+                            <th class="c-enviar centro">Enviar</th>
+                            <th class="c-enviado centro">Enviado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guestTableBody">
+                        <tr><td colspan="10" class="text-center py-10 text-slate-400 animate-pulse">Cargando datos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-slate-400">
+            Los cambios se guardan solos · <b>Enter</b> baja a la siguiente fila · <b>↑ ↓</b> moverse entre filas · <b>Ctrl + S</b> guardar ya
+        </p>
+    </div>
+
+    <!-- BOTÓN GUARDAR / NO GUARDADO -->
+    <button id="barraGuardar" data-estado="cargando" onclick="guardar(true)">
+        <i class="icono ph ph-spinner animate-spin"></i>
+        <span>
+            <span class="titulo">Cargando...</span>
+            <span class="detalle">Leyendo invitados.json</span>
+        </span>
+    </button>
+
+    <div id="toast" role="status" aria-live="polite"><span id="toastTexto"></span><button id="toastAccion" hidden></button></div>
+
+    <script>
+        const CAMPOS_NUM = ['total', 'adultos', 'adolescentes', 'ninos'];
+        const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        let filas = [];                 // datos actuales en pantalla
+        const porId = new Map();        // id -> fila
+        const guardadas = new Map();    // id -> "foto" de lo último guardado en el servidor
+        const pendientes = new Set();   // ids con cambios sin guardar
+        let guardando = false;
+        let ultimoGuardado = null;
+        let errorGuardado = '';
+        let filtroActual = 'todos';
+        let chartInstance = null;
+
+        const FILTROS = {
+            todos:     { texto: 'Todos',        fn: () => true },
+            familia:   { texto: 'Con datos',    fn: f => tieneDatos(f) },
+            vacios:    { texto: 'Vacíos',       fn: f => !tieneDatos(f) },
+            enviados:  { texto: 'Enviadas',     fn: f => tieneDatos(f) && f.enviado },
+            porEnviar: { texto: 'Por enviar',   fn: f => tieneDatos(f) && !f.enviado },
+            sinMesa:   { texto: 'Sin mesa',     fn: f => tieneDatos(f) && !String(f.mesa).trim() },
+            cambios:   { texto: 'Sin guardar',  fn: f => pendientes.has(f.id) },
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            cargar();
+            document.getElementById('searchInput').addEventListener('input', aplicarFiltros);
+            const tbody = document.getElementById('guestTableBody');
+            tbody.addEventListener('input', alEscribir);
+            tbody.addEventListener('change', alCambiarCheck);
+            tbody.addEventListener('click', alClic);
+            tbody.addEventListener('keydown', alTeclear);
+            tbody.addEventListener('focusout', e => {
+                // Si el total no cuadra con la suma, se marca en naranja
+                if (e.target.dataset && CAMPOS_NUM.includes(e.target.dataset.campo)) marcarAvisoTotal(e.target.closest('tr'));
+            });
+        });
+
+        // Ctrl + S guarda de inmediato
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                guardar(true);
+            }
+        });
+
+        // Aviso si se intenta cerrar la página con cambios sin guardar
+        window.addEventListener('beforeunload', e => {
+            if (pendientes.size || guardando) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // ================== CARGA ==================
+
+
+        function foto(f) {
+            return JSON.stringify([String(f.familia).trim(), f.total, f.adultos, f.adolescentes, f.ninos, String(f.nombres).trim(), String(f.mesa).trim(), !!f.enviado]);
+        }
+
+        function normalizar(r) {
+            return {
+                id: String(r.id || '').toUpperCase(),
+                familia: r.familia || '',
+                total: num(r.total),
+                adultos: num(r.adultos),
+                adolescentes: num(r.adolescentes),
+                ninos: num(r.ninos),
+                nombres: r.nombres || '',
+                mesa: String(r.mesa ?? ''),
+                enviado: r.enviado === true || String(r.enviado).toUpperCase() === 'TRUE',
+            };
+        }
+
+        async function recargar() {
+            if (pendientes.size && !confirm(`Tienes ${pendientes.size} fila(s) sin guardar. Si actualizas se perderán esos cambios. ¿Continuar?`)) return;
+            cargar();
+        }
+
+        async function cargar() {
+            estadoCargando(true);
+            pintarBoton('cargando');
+            try {
+                const res = await apiAdmin('invitados');
+                filas = res.invitados.map(normalizar).filter(f => f.id);
+                porId.clear(); guardadas.clear(); pendientes.clear();
+                filas.forEach(f => { porId.set(f.id, f); guardadas.set(f.id, foto(f)); });
+
+                document.getElementById('searchInput').disabled = false;
+
+                errorGuardado = '';
+                renderTabla();
+                calcularEstadisticas();
+                aplicarFiltros();
+                pintarBoton();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('guestTableBody').innerHTML =
+                    `<tr><td colspan="10" class="text-center py-10 text-red-500">Error: ${esc(error.message)}</td></tr>`;
+                pintarBoton('error', 'No se pudo cargar');
+            } finally {
+                estadoCargando(false);
+            }
+        }
+
+        // ================== TABLA ==================
+
+        function htmlFila(f, i) {
+            const n = c => f[c] ? f[c] : '';
+            return `
+                <tr data-id="${esc(f.id)}" class="${filaClases(f)}">
+                    <td class="c-id"><span class="renglon">${i + 1}</span><span class="codigo">${esc(f.id)}</span></td>
+                    <td class="c-familia" data-label="Familia o nombre">
+                        <input class="celda" data-campo="familia" value="${esc(f.familia)}" placeholder="Sin asignar" maxlength="150" autocomplete="off">
+                    </td>
+                    <td class="c-num" data-label="Total">
+                        <input class="celda numero" data-campo="total" value="${n('total')}" placeholder="0" inputmode="numeric" maxlength="3" autocomplete="off">
+                    </td>
+                    <td class="c-num" data-label="Adultos">
+                        <input class="celda numero" data-campo="adultos" value="${n('adultos')}" placeholder="0" inputmode="numeric" maxlength="3" autocomplete="off">
+                    </td>
+                    <td class="c-num" data-label="Adolesc.">
+                        <input class="celda numero" data-campo="adolescentes" value="${n('adolescentes')}" placeholder="0" inputmode="numeric" maxlength="3" autocomplete="off">
+                    </td>
+                    <td class="c-num" data-label="Niños">
+                        <input class="celda numero" data-campo="ninos" value="${n('ninos')}" placeholder="0" inputmode="numeric" maxlength="3" autocomplete="off">
+                    </td>
+                    <td class="c-nombres" data-label="Nombres de los invitados">
+                        <textarea class="celda" data-campo="nombres" rows="1" placeholder="Ej. Juan, María, Sofía" maxlength="1000">${esc(f.nombres)}</textarea>
+                    </td>
+                    <td class="c-mesa" data-label="# Mesa">
+                        <input class="celda numero" data-campo="mesa" value="${esc(f.mesa)}" placeholder="—" maxlength="30" autocomplete="off">
+                    </td>
+                    <td class="c-enviar" data-label="Enviar">
+                        <button type="button" class="btn-copiar" data-accion="copiar" title="${esc(linkInvitacion(f.id))}">
+                            <i class="ph ph-copy"></i> Copiar link
+                        </button>
+                    </td>
+                    <td class="c-enviado">
+                        <label class="chk" title="Marcar invitación como enviada">
+                            <input type="checkbox" data-campo="enviado" ${f.enviado ? 'checked' : ''}>
+                            <span class="caja"><i class="ph-bold ph-check"></i></span>
+                            <span class="chk-texto">${f.enviado ? 'Enviada' : 'No enviada'}</span>
+                        </label>
+                    </td>
+                </tr>`;
+        }
+
+        function filaClases(f) {
+            return [f.enviado ? 'enviada' : '', pendientes.has(f.id) ? 'sucia' : '', tieneDatos(f) ? '' : 'vacia'].join(' ').trim();
+        }
+
+        function renderTabla() {
+            const tbody = document.getElementById('guestTableBody');
+            if (!filas.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center py-10 text-slate-400">No hay códigos todavía.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = filas.map(htmlFila).join('');
+            tbody.querySelectorAll('tr[data-id]').forEach(marcarAvisoTotal);
+        }
+
+        function filaDe(el) {
+            const tr = el.closest('tr[data-id]');
+            return tr ? { tr, fila: porId.get(tr.dataset.id) } : {};
+        }
+
+        function actualizarEstadoFila(tr, fila) {
+            if (foto(fila) === guardadas.get(fila.id)) pendientes.delete(fila.id);
+            else pendientes.add(fila.id);
+            tr.className = filaClases(fila);
+            programarEstadisticas();
+            pintarBoton();
+            programarGuardado();
+        }
+
+        function alEscribir(e) {
+            const el = e.target;
+            const campo = el.dataset.campo;
+            if (!campo || campo === 'enviado') return;
+            const { tr, fila } = filaDe(el);
+            if (!fila) return;
+
+            if (CAMPOS_NUM.includes(campo)) {
+                const limpio = el.value.replace(/\D/g, '').slice(0, 3);
+                if (limpio !== el.value) el.value = limpio;
+                fila[campo] = num(limpio);
+
+                // El total se calcula solo al llenar adultos / adolescentes / niños
+                if (campo !== 'total') {
+                    const suma = fila.adultos + fila.adolescentes + fila.ninos;
+                    if (suma > 0) {
+                        fila.total = suma;
+                        tr.querySelector('[data-campo="total"]').value = suma;
+                    }
+                }
+                marcarAvisoTotal(tr);
+            } else {
+                fila[campo] = el.value;
+            }
+            actualizarEstadoFila(tr, fila);
+        }
+
+        function marcarAvisoTotal(tr) {
+            const fila = tr && porId.get(tr.dataset.id);
+            if (!fila) return;
+            const suma = fila.adultos + fila.adolescentes + fila.ninos;
+            const input = tr.querySelector('[data-campo="total"]');
+            const aviso = suma > 0 && fila.total !== suma;
+            input.classList.toggle('aviso', aviso);
+            input.title = aviso ? `El total (${fila.total}) no coincide con adultos + adolescentes + niños (${suma})` : '';
+        }
+
+        function alCambiarCheck(e) {
+            const el = e.target;
+            if (el.dataset.campo !== 'enviado') return;
+            const { tr, fila } = filaDe(el);
+            if (!fila) return;
+            fila.enviado = el.checked;
+            tr.querySelector('.chk-texto').textContent = el.checked ? 'Enviada' : 'No enviada';
+            actualizarEstadoFila(tr, fila);
+        }
+
+        function alClic(e) {
+            const btn = e.target.closest('[data-accion="copiar"]');
+            if (!btn) return;
+            const { tr, fila } = filaDe(btn);
+            if (!fila) return;
+            copiarConAviso(btn, linkInvitacion(fila.id));
+            // Se guarda de inmediato para que el invitado vea sus datos al abrir el link
+            if (pendientes.size) guardar();
+            const nombre = tieneDatos(fila) ? nombreVisible(fila) : fila.id;
+            if (!fila.enviado) {
+                mostrarToast(`Link de «${nombre}» copiado`, 'Marcar como enviada', () => {
+                    const chk = tr.querySelector('[data-campo="enviado"]');
+                    chk.checked = true;
+                    chk.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            } else {
+                mostrarToast(`Link de «${nombre}» copiado`);
+            }
+        }
+
+        // Enter / flechas: moverse entre filas como en Excel
+        function alTeclear(e) {
+            const el = e.target;
+            const campo = el.dataset && el.dataset.campo;
+            if (!campo || campo === 'enviado') return;
+            let dir = 0;
+            if (e.key === 'Enter') dir = e.shiftKey ? -1 : 1;
+            else if (el.tagName === 'INPUT' && e.key === 'ArrowDown') dir = 1;
+            else if (el.tagName === 'INPUT' && e.key === 'ArrowUp') dir = -1;
+            if (!dir) return;
+            e.preventDefault();
+            let tr = el.closest('tr');
+            do { tr = dir > 0 ? tr.nextElementSibling : tr.previousElementSibling; } while (tr && tr.hidden);
+            if (tr) {
+                const destino = tr.querySelector(`[data-campo="${campo}"]`);
+                destino.focus();
+                if (destino.select) destino.select();
+            }
+        }
+
+        function nuevoId() {
+            let id;
+            do {
+                id = Array.from({ length: 5 }, () => ALFABETO[Math.floor(Math.random() * ALFABETO.length)]).join('');
+            } while (porId.has(id) || !/[A-Z]/.test(id) || !/\d/.test(id));
+            return id;
+        }
+
+        function agregarFila() {
+            const fila = normalizar({ id: nuevoId() });
+            filas.push(fila);
+            porId.set(fila.id, fila);
+            pendientes.add(fila.id);
+
+            const tbody = document.getElementById('guestTableBody');
+            tbody.insertAdjacentHTML('beforeend', htmlFila(fila, filas.length - 1));
+
+            // Limpia filtros para que la fila nueva se vea
+            document.getElementById('searchInput').value = '';
+            filtroActual = 'todos';
+            aplicarFiltros();
+            pintarBoton();
+
+            const tr = tbody.lastElementChild;
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => tr.querySelector('[data-campo="familia"]').focus({ preventScroll: true }), 350);
+            programarGuardado();
+            mostrarToast(`Código nuevo ${fila.id} agregado.`);
+        }
+
+        // ================== FILTROS ==================
+
+        function aplicarFiltros() {
+            const q = document.getElementById('searchInput').value.trim().toLowerCase();
+            const filtro = FILTROS[filtroActual].fn;
+            let visibles = 0;
+            document.querySelectorAll('#guestTableBody tr[data-id]').forEach(tr => {
+                const f = porId.get(tr.dataset.id);
+                const texto = `${f.id} ${f.familia} ${f.nombres} ${f.mesa}`.toLowerCase();
+                const ver = filtro(f) && (!q || texto.includes(q));
+                tr.hidden = !ver;
+                if (ver) visibles++;
+            });
+            document.getElementById('contadorVisible').textContent = `Mostrando ${visibles} de ${filas.length}`;
+            pintarChips();
+        }
+
+        function pintarChips() {
+            document.getElementById('chips').innerHTML = Object.entries(FILTROS).map(([clave, f]) => {
+                const cantidad = filas.filter(f.fn).length;
+                if (clave === 'cambios' && !cantidad && filtroActual !== 'cambios') return '';
+                return `<button type="button" class="chip ${clave === filtroActual ? 'activo' : ''}" onclick="cambiarFiltro('${clave}')">${f.texto}<span>${cantidad}</span></button>`;
+            }).join('');
+        }
+
+        function cambiarFiltro(clave) {
+            filtroActual = clave;
+            aplicarFiltros();
+        }
+
+        // ================== ESTADÍSTICAS ==================
+
+        let temporizadorStats = null;
+        function programarEstadisticas() {
+            clearTimeout(temporizadorStats);
+            temporizadorStats = setTimeout(() => { calcularEstadisticas(); pintarChips(); }, 250);
+        }
+
+        function calcularEstadisticas() {
+            const familias = filas.filter(tieneDatos);
+            let adultos = 0, adolescentes = 0, ninos = 0, total = 0, sinDesglose = 0, enviadas = 0;
+            familias.forEach(f => {
+                const suma = f.adultos + f.adolescentes + f.ninos;
+                const tot = Math.max(f.total, suma);
+                adultos += f.adultos;
+                adolescentes += f.adolescentes;
+                ninos += f.ninos;
+                total += tot;
+                sinDesglose += tot - suma;
+                if (f.enviado) enviadas++;
+            });
+            document.getElementById('totalDisplay').textContent = total;
+            document.getElementById('totalFamilies').textContent = familias.length;
+            document.getElementById('sentCount').textContent = enviadas;
+            document.getElementById('countAdultos').textContent = adultos;
+            document.getElementById('countAdolescentes').textContent = adolescentes;
+            document.getElementById('countNinos').textContent = ninos;
+            renderChart(adultos, adolescentes, ninos, sinDesglose);
+        }
+
+        function renderChart(adultos, adolescentes, ninos, sinDesglose) {
+            const labels = ['Adultos', 'Adolescentes', 'Niños'];
+            const data = [adultos, adolescentes, ninos];
+            const colors = ['#3b82f6', '#eab308', '#22c55e'];
+            if (sinDesglose > 0) { labels.push('Sin desglose'); data.push(sinDesglose); colors.push('#cbd5e1'); }
+
+            if (chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = data;
+                chartInstance.data.datasets[0].backgroundColor = colors;
+                chartInstance.update();
+                return;
+            }
+            const enCelular = window.matchMedia('(max-width: 640px)').matches;
+            chartInstance = new Chart(document.getElementById('guestChart'), {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 10 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: enCelular ? 'bottom' : 'right' } } }
+            });
+        }
+
+        // ================== GUARDAR ==================
+
+        // Guardado automático: se guarda poco después de dejar de escribir
+        const ESPERA_AUTOGUARDADO = 1000;
+        let temporizadorGuardado = null;
+        let repetirGuardado = false;
+
+        function programarGuardado(espera = ESPERA_AUTOGUARDADO) {
+            clearTimeout(temporizadorGuardado);
+            if (pendientes.size) temporizadorGuardado = setTimeout(() => guardar(), espera);
+        }
+
+        async function guardar(manual = false) {
+            clearTimeout(temporizadorGuardado);
+            if (guardando) { repetirGuardado = true; return; }
+            if (!pendientes.size) {
+                if (manual) mostrarToast('Todo está guardado');
+                return;
+            }
+            guardando = true;
+            repetirGuardado = false;
+            const ids = [...pendientes];
+            const cambios = ids.map(id => {
+                const f = porId.get(id);
+                return { ...f, familia: f.familia.trim(), nombres: f.nombres.trim(), mesa: f.mesa.trim() };
+            });
+            pintarBoton('guardando');
+
+            try {
+                await apiAdmin('guardar_invitados', { cambios });
+                cambios.forEach(c => guardadas.set(c.id, foto(c)));
+                // Solo se limpian las filas que no cambiaron mientras se guardaba
+                ids.forEach(id => {
+                    const fila = porId.get(id);
+                    if (foto(fila) === guardadas.get(id)) pendientes.delete(id);
+                    const tr = document.querySelector(`#guestTableBody tr[data-id="${id}"]`);
+                    if (tr) tr.className = filaClases(fila);
+                });
+                ultimoGuardado = new Date();
+                errorGuardado = '';
+                if (manual) mostrarToast(`${cambios.length} fila(s) guardadas`);
+                pintarChips();
+            } catch (error) {
+                console.error(error);
+                errorGuardado = error.message;
+                mostrarToast('⚠ No se pudo guardar: ' + error.message + '. Se reintentará solo.');
+            } finally {
+                guardando = false;
+                pintarBoton();
+                // Si se escribió algo mientras se guardaba, o falló, se vuelve a intentar
+                if (pendientes.size) programarGuardado(errorGuardado ? 8000 : (repetirGuardado ? 100 : ESPERA_AUTOGUARDADO));
+            }
+        }
+
+        function pintarBoton(forzado, detalleForzado) {
+            const btn = document.getElementById('barraGuardar');
+            let estado = forzado || (pendientes.size ? (errorGuardado ? 'error' : 'pendiente') : 'guardado');
+            const hora = ultimoGuardado ? ultimoGuardado.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+            const vistas = {
+                cargando:  ['ph ph-spinner animate-spin', 'Cargando...', 'Leyendo invitados.json'],
+                guardando: ['ph ph-spinner animate-spin', 'Guardando...', 'No cierres la página'],
+                guardado:  ['ph-fill ph-check-circle', 'Guardado', hora ? `Todo al día · ${hora}` : 'Sin cambios pendientes'],
+                pendiente: ['ph-fill ph-floppy-disk', 'Guardar ahora', `No guardado · ${pendientes.size} fila(s) · se guardará solo`],
+                error:     ['ph-fill ph-warning-circle', 'No guardado · Reintentar', detalleForzado || errorGuardado || 'Toca para intentar de nuevo'],
+            };
+            const [icono, titulo, detalle] = vistas[estado];
+            btn.dataset.estado = estado;
+            btn.querySelector('.icono').className = 'icono ' + icono;
+            btn.querySelector('.titulo').textContent = titulo;
+            btn.querySelector('.detalle').textContent = detalle;
+            btn.title = estado === 'guardado' ? 'Todos los cambios están guardados' : '';
+        }
+
+        // ================== AVISOS ==================
+
+        let temporizadorToast = null;
+        function mostrarToast(texto, textoAccion, accion) {
+            const toast = document.getElementById('toast');
+            const btn = document.getElementById('toastAccion');
+            document.getElementById('toastTexto').textContent = texto;
+            btn.hidden = !textoAccion;
+            if (textoAccion) {
+                btn.textContent = textoAccion;
+                btn.onclick = () => { accion(); toast.classList.remove('visible'); };
+            }
+            toast.classList.add('visible');
+            clearTimeout(temporizadorToast);
+            temporizadorToast = setTimeout(() => toast.classList.remove('visible'), textoAccion ? 5000 : 2500);
+        }
+    </script>
+</body>
+</html>

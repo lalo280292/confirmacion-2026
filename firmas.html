@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Libro de Firmas</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --fondo: #faf6f1;
+            --tinta: #3b2f2a;
+            --suave: #8a7b72;
+            --linea: #eadfd4;
+            --oro: #b8925a;
+            --tarjeta: #fffdfa;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 10% 0%, #f6e7e3 0, transparent 40%),
+                radial-gradient(circle at 90% 10%, #efe6f6 0, transparent 35%),
+                var(--fondo);
+            color: var(--tinta);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ---------- Portada ---------- */
+        .portada { text-align: center; padding: 56px 20px 28px; }
+        .ornamento { color: var(--oro); font-size: 26px; letter-spacing: 12px; opacity: .8; }
+        .portada h1 {
+            font-family: 'Great Vibes', cursive; font-weight: 400;
+            font-size: clamp(56px, 11vw, 104px); line-height: 1; margin: 6px 0 4px; color: var(--tinta);
+        }
+        .portada p { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 20px; color: var(--suave); margin: 0; }
+        .contador {
+            display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+            padding: 6px 16px; border: 1px solid var(--linea); border-radius: 999px; background: rgba(255,255,255,.7);
+            font-size: 13px; font-weight: 600; color: var(--suave);
+        }
+        .contador b { color: var(--oro); font-size: 15px; }
+
+        /* ---------- Herramientas ---------- */
+        .herramientas {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+            padding: 12px 16px; background: rgba(250, 246, 241, .85); backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--linea);
+        }
+        .buscar { position: relative; flex: 1 1 260px; max-width: 420px; }
+        .buscar i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--suave); }
+        .buscar input {
+            width: 100%; padding: 11px 14px 11px 40px; border-radius: 999px; border: 1px solid var(--linea);
+            background: #fff; font: inherit; font-size: 15px; color: var(--tinta); outline: none;
+        }
+        .buscar input:focus { border-color: var(--oro); box-shadow: 0 0 0 3px rgba(184, 146, 90, .15); }
+        .boton {
+            display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
+            border: 1px solid var(--linea); background: #fff; color: var(--tinta); font: inherit; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all .15s;
+        }
+        .boton:hover { border-color: var(--oro); color: var(--oro); }
+        .boton.principal { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+        .boton.principal:hover { background: #57463f; color: #fff; }
+        .girando { animation: girar 1s linear infinite; }
+        @keyframes girar { to { transform: rotate(360deg); } }
+
+        /* ---------- Mensajes (mosaico) ---------- */
+        .mosaico { columns: 3 320px; column-gap: 22px; max-width: 1200px; margin: 0 auto; padding: 32px 18px 80px; }
+        .firma {
+            break-inside: avoid; margin: 0 0 22px; position: relative;
+            background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 18px;
+            padding: 30px 26px 22px; box-shadow: 0 1px 2px rgba(59,47,42,.04), 0 12px 30px -18px rgba(59,47,42,.25);
+            animation: aparecer .5s ease-out both;
+        }
+        .firma::before {
+            content: ''; position: absolute; left: 26px; right: 26px; top: 0; height: 3px; border-radius: 0 0 4px 4px;
+            background: var(--acento, var(--oro));
+        }
+        .firma .comillas { font-family: 'Cormorant Garamond', serif; font-size: 64px; line-height: .6; color: var(--acento, var(--oro)); opacity: .45; height: 26px; }
+        .firma .mensaje {
+            font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500;
+            font-size: 21px; line-height: 1.45; margin: 4px 0 18px; white-space: pre-line; overflow-wrap: anywhere;
+        }
+        .firma .pie { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-top: 1px dashed var(--linea); padding-top: 14px; }
+        .firma .nombre { font-family: 'Great Vibes', cursive; font-size: 30px; line-height: 1.1; color: var(--tinta); }
+        .firma time { font-size: 12px; color: var(--suave); white-space: nowrap; }
+        .firma.nueva { box-shadow: 0 0 0 2px var(--oro), 0 12px 30px -18px rgba(59,47,42,.25); }
+        @keyframes aparecer { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+        .estado { text-align: center; color: var(--suave); padding: 60px 20px; font-family: 'Cormorant Garamond', serif; font-size: 24px; font-style: italic; }
+        .estado i { display: block; font-size: 46px; color: var(--oro); margin-bottom: 8px; font-style: normal; }
+
+        /* ---------- Modo pantalla (para proyectar en la fiesta) ---------- */
+        #pantalla {
+            position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 6vh 8vw; text-align: center; cursor: pointer;
+            background: radial-gradient(circle at 50% 30%, #3d302b, #1b1412);
+            color: #f7efe6;
+        }
+        #pantalla.activo { display: flex; }
+        #pantalla .titulo { font-family: 'Great Vibes', cursive; font-size: clamp(36px, 5vw, 64px); color: #d9b77e; margin-bottom: 4vh; }
+        #pantalla .mensaje {
+            font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: clamp(28px, 4.2vw, 64px); line-height: 1.3;
+            max-width: 1100px; white-space: pre-line; overflow-wrap: anywhere;
+        }
+        #pantalla .nombre { font-family: 'Great Vibes', cursive; font-size: clamp(36px, 5vw, 72px); color: #d9b77e; margin-top: 4vh; }
+        #pantalla .contenido { transition: opacity .8s ease; }
+        #pantalla .contenido.oculto { opacity: 0; }
+        #pantalla .ayuda { position: absolute; bottom: 18px; font-size: 13px; color: rgba(247,239,230,.4); }
+
+        @media (max-width: 640px) {
+            .portada { padding-top: 36px; }
+            .mosaico { padding-top: 20px; }
+            .firma .mensaje { font-size: 19px; }
+            .boton span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="portada">
+    <div class="ornamento">❦ ❦ ❦</div>
+    <h1>Libro de Firmas</h1>
+    <p>Mensajes y buenos deseos de nuestros invitados</p>
+    <div class="contador" id="contador"><i class="ph ph-envelope-simple-open"></i> Cargando mensajes...</div>
+</header>
+
+<div class="herramientas">
+    <label class="buscar">
+        <i class="ph ph-magnifying-glass"></i>
+        <input type="search" id="buscar" placeholder="Buscar por nombre o mensaje..." autocomplete="off">
+    </label>
+    <button class="boton" id="btnActualizar" onclick="cargar(true)" title="Actualizar">
+        <i class="ph ph-arrows-clockwise" id="iconoActualizar"></i><span>Actualizar</span>
+    </button>
+    <button class="boton principal" onclick="abrirPantalla()" title="Mostrar los mensajes en pantalla completa">
+        <i class="ph ph-presentation"></i><span>Modo pantalla</span>
+    </button>
+</div>
+
+<main class="mosaico" id="content">
+    <div class="estado"><i class="ph ph-feather"></i>Cargando firmas...</div>
+</main>
+
+<div id="pantalla" onclick="cerrarPantalla()">
+    <div class="titulo">Libro de Firmas</div>
+    <div class="contenido" id="pantallaContenido">
+        <div class="mensaje" id="pantallaMensaje"></div>
+        <div class="nombre" id="pantallaNombre"></div>
+    </div>
+    <div class="ayuda">Toca la pantalla o presiona Esc para salir</div>
+</div>
+
+<script>
+    const ACENTOS = ['#c98b8b', '#b8925a', '#9a86c4', '#7fa58a', '#c49a6c', '#8aa4c4'];
+    const ACTUALIZAR_CADA = 60000; // revisa mensajes nuevos cada minuto
+    let firmas = [];
+    let vistos = null;            // ids ya mostrados (para resaltar los nuevos)
+    let indicePantalla = 0;
+    let temporizadorPantalla = null;
+
+    document.getElementById('buscar').addEventListener('input', pintar);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarPantalla(); });
+
+    cargar();
+    setInterval(() => cargar(false), ACTUALIZAR_CADA);
+
+    async function cargar(manual = false) {
+        const icono = document.getElementById('iconoActualizar');
+        icono.classList.add('girando');
+        try {
+            const res = await fetch('api.php?accion=firmas&t=' + Date.now(), { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error);
+            firmas = data.firmas.filter(f => String(f.mensaje || '').trim() !== '');
+            pintar();
+        } catch (error) {
+            console.error('Error al cargar los datos:', error);
+            if (manual || !firmas.length) {
+                document.getElementById('content').innerHTML =
+                    '<div class="estado"><i class="ph ph-wifi-slash"></i>No se pudieron cargar las firmas.</div>';
+            }
+        } finally {
+            icono.classList.remove('girando');
+        }
+    }
+
+    function pintar() {
+        const q = document.getElementById('buscar').value.trim().toLowerCase();
+        const lista = firmas.filter(f => !q || `${f.nombre} ${f.mensaje}`.toLowerCase().includes(q));
+        const content = document.getElementById('content');
+
+        const total = firmas.length;
+        document.getElementById('contador').innerHTML = total
+            ? `<i class="ph ph-envelope-simple-open"></i> <b>${total}</b> ${total === 1 ? 'mensaje' : 'mensajes'} de cariño`
+            : '<i class="ph ph-envelope-simple"></i> Aún no hay mensajes';
+
+        content.innerHTML = '';
+        if (!total) {
+            content.innerHTML = '<div class="estado"><i class="ph ph-feather"></i>Aún no hay mensajes.<br>¡Pronto llegarán las felicitaciones!</div>';
+            return;
+        }
+        if (!lista.length) {
+            content.innerHTML = '<div class="estado"><i class="ph ph-magnifying-glass"></i>No hay mensajes que coincidan con la búsqueda.</div>';
+            return;
+        }
+
+        lista.forEach((item, i) => {
+            const card = document.createElement('article');
+            card.className = 'firma' + (vistos && !vistos.has(clave(item)) ? ' nueva' : '');
+            card.style.setProperty('--acento', ACENTOS[i % ACENTOS.length]);
+            card.style.animationDelay = Math.min(i * 40, 600) + 'ms';
+
+            const comillas = document.createElement('div');
+            comillas.className = 'comillas';
+            comillas.textContent = '“';
+
+            const mensaje = document.createElement('p');
+            mensaje.className = 'mensaje';
+            mensaje.textContent = item.mensaje; // textContent: nunca se interpreta como HTML
+
+            const pie = document.createElement('div');
+            pie.className = 'pie';
+            const nombre = document.createElement('div');
+            nombre.className = 'nombre';
+            nombre.textContent = item.nombre || 'Con cariño';
+            pie.appendChild(nombre);
+
+            const fecha = aFecha(item.fecha);
+            if (fecha) {
+                const time = document.createElement('time');
+                time.textContent = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+                pie.appendChild(time);
+            }
+
+            card.append(comillas, mensaje, pie);
+            content.appendChild(card);
+        });
+        vistos = new Set(firmas.map(clave));
+    }
+
+    function clave(f) { return `${f.id}|${f.fecha}`; }
+
+    function aFecha(valor) {
+        const d = new Date(String(valor || '').replace(' ', 'T'));
+        return isNaN(d) ? null : d;
+    }
+
+    // ---------- Modo pantalla ----------
+    function abrirPantalla() {
+        if (!firmas.length) return alert('Aún no hay mensajes para mostrar.');
+        indicePantalla = 0;
+        document.getElementById('pantalla').classList.add('activo');
+        const raiz = document.documentElement;
+        if (raiz.requestFullscreen) raiz.requestFullscreen().catch(() => {});
+        mostrarSiguiente(true);
+    }
+
+    function mostrarSiguiente(primero = false) {
+        clearTimeout(temporizadorPantalla);
+        if (!firmas.length) return;
+        const contenido = document.getElementById('pantallaContenido');
+        contenido.classList.add('oculto');
+        setTimeout(() => {
+            const f = firmas[indicePantalla % firmas.length];
+            document.getElementById('pantallaMensaje').textContent = `“${f.mensaje}”`;
+            document.getElementById('pantallaNombre').textContent = f.nombre || '';
+            contenido.classList.remove('oculto');
+            indicePantalla++;
+            // Más tiempo para los mensajes largos
+            const espera = Math.min(20000, 7000 + String(f.mensaje).length * 40);
+            temporizadorPantalla = setTimeout(mostrarSiguiente, espera);
+        }, primero ? 0 : 800);
+    }
+
+    function cerrarPantalla() {
+        clearTimeout(temporizadorPantalla);
+        document.getElementById('pantalla').classList.remove('activo');
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+</script>
+
+</body>
+</html>

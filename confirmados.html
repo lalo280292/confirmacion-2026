@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Asistencia - Plan y Fiesta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="admin.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        .tab-btn { position: relative; }
+
+        .active-si { color: #1d4ed8; background-color: #eff6ff; border-bottom: 3px solid #3b82f6; }
+        .active-pending { color: #c2410c; background-color: #fff7ed; border-bottom: 3px solid #f97316; }
+        .active-no { color: #b91c1c; background-color: #fef2f2; border-bottom: 3px solid #ef4444; }
+
+        .tab-inactive { color: #6b7280; border-bottom: 3px solid transparent; }
+        .tab-inactive:hover { background-color: #f9fafb; color: #374151; }
+
+        /* Campo de mesa editable */
+        .mesa-wrap { position: relative; width: 84px; margin: 0 auto; }
+        .mesa-input {
+            width: 100%; text-align: center; font-weight: 700; font-size: 15px;
+            border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 22px 6px 6px; background: #f9fafb;
+            outline: none; transition: all .15s;
+        }
+        .mesa-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px #bfdbfe; }
+        .mesa-input.guardando { border-color: #a5b4fc; }
+        .mesa-input.ok { border-color: #22c55e; background: #f0fdf4; }
+        .mesa-input.error { border-color: #ef4444; background: #fef2f2; }
+        .mesa-estado { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <header class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-sm gap-4">
+            <div>
+                <a href="panel.html" class="text-xs font-semibold text-gray-400 hover:text-blue-600 flex items-center gap-1 mb-1"><i class="ph ph-arrow-left"></i> Panel de control</a>
+                <h1 class="text-2xl font-bold text-gray-900">Reporte de Asistencia</h1>
+            </div>
+
+            <button id="btnRefresh" onclick="fetchData()" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-5 py-2.5 rounded-lg text-sm font-bold transition flex items-center gap-2 border border-blue-200">
+                <i id="iconRefresh" class="ph ph-arrows-clockwise text-xl"></i>
+                <span id="textRefresh">Actualizar Datos</span>
+            </button>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden flex border-b border-gray-200">
+            <button onclick="switchTab('si')" id="tab-si" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 active-si">
+                <i class="ph ph-check-circle text-xl sm:text-lg"></i>
+                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">Sí Asistirán</span>
+            </button>
+            <button onclick="switchTab('pending')" id="tab-pending" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive">
+                <i class="ph ph-clock-countdown text-xl sm:text-lg"></i>
+                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">Pendientes</span>
+            </button>
+            <button onclick="switchTab('no')" id="tab-no" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive">
+                <i class="ph ph-x-circle text-xl sm:text-lg"></i>
+                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">No Asistirán</span>
+            </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm sticky top-2 z-20 border border-gray-200">
+            <div class="relative">
+                <i class="ph ph-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-lg"></i>
+                <input type="text" id="searchInput"
+                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    placeholder="Buscar familia..." disabled>
+            </div>
+        </div>
+
+        <div id="view-si" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-4">
+                    <div class="bg-green-50 p-5 rounded-xl border border-green-100 flex items-center justify-between">
+                        <div><p class="text-sm text-green-600 font-bold uppercase">Total Confirmados</p><p id="si-total" class="text-3xl font-bold text-green-800">0</p></div>
+                        <i class="ph ph-users-three text-3xl text-green-300"></i>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="si-adu" class="text-xl font-bold text-blue-600">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="si-ado" class="text-xl font-bold text-yellow-600">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="si-nin" class="text-xl font-bold text-green-600">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
+                    <canvas id="chartSi"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center gap-2 flex-wrap">
+                    <h3 class="font-bold text-gray-700">Listado de Asistentes</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400 hidden sm:inline">La mesa se guarda sola al editarla</span>
+                        <span id="si-count-rows" class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-bold">0 filas</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 uppercase">
+                            <tr>
+                                <th class="px-6 py-3 text-left">Familia</th>
+                                <th class="px-6 py-3 text-center">Total</th>
+                                <th class="px-6 py-3 text-center text-blue-600">Adu</th>
+                                <th class="px-6 py-3 text-center text-yellow-600">Ado</th>
+                                <th class="px-6 py-3 text-center text-green-600">Niñ</th>
+                                <th class="px-6 py-3 text-left">Nombres</th>
+                                <th class="px-6 py-3 text-center">Mesa</th>
+                                <th class="px-6 py-3 text-center">QR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-si" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-pending" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-4">
+                    <div class="bg-orange-50 p-5 rounded-xl border border-orange-100 flex items-center justify-between">
+                        <div><p class="text-sm text-orange-600 font-bold uppercase">Faltan por Confirmar</p><p id="pending-total" class="text-3xl font-bold text-orange-800">0</p></div>
+                        <i class="ph ph-clock-countdown text-3xl text-orange-300"></i>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="pending-adu" class="text-xl font-bold text-gray-600">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="pending-ado" class="text-xl font-bold text-gray-600">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="pending-nin" class="text-xl font-bold text-gray-600">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
+                    <canvas id="chartPending"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-100 bg-orange-50 flex justify-between items-center">
+                    <h3 class="font-bold text-orange-800">Familias sin Respuesta</h3>
+                    <span id="pending-count-rows" class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold">0 filas</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 uppercase">
+                            <tr>
+                                <th class="px-6 py-3 text-left">Familia</th>
+                                <th class="px-6 py-3 text-left">Nombres</th>
+                                <th class="px-6 py-3 text-center">Adu</th>
+                                <th class="px-6 py-3 text-center">Ado</th>
+                                <th class="px-6 py-3 text-center">Niñ</th>
+                                <th class="px-6 py-3 text-center">Enviada</th>
+                                <th class="px-6 py-3 text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-pending" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-no" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-4">
+                    <div class="bg-red-50 p-5 rounded-xl border border-red-100 flex items-center justify-between">
+                        <div><p class="text-sm text-red-600 font-bold uppercase">Lugares Liberados</p><p id="no-total" class="text-3xl font-bold text-red-800">0</p></div>
+                        <i class="ph ph-chair text-3xl text-red-300"></i>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="no-adu" class="text-xl font-bold text-gray-500">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="no-ado" class="text-xl font-bold text-gray-500">0</p>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="no-nin" class="text-xl font-bold text-gray-500">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
+                    <canvas id="chartNo"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-100 bg-red-50 flex justify-between items-center">
+                    <h3 class="font-bold text-red-700">Cancelaciones</h3>
+                    <span id="no-count-rows" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">0 filas</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 uppercase">
+                            <tr>
+                                <th class="px-6 py-3 text-left">Familia</th>
+                                <th class="px-6 py-3 text-left">Nombres</th>
+                                <th class="px-6 py-3 text-center">Adu</th>
+                                <th class="px-6 py-3 text-center">Ado</th>
+                                <th class="px-6 py-3 text-center">Niñ</th>
+                                <th class="px-6 py-3 text-center">Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-no" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let chartSiInstance = null;
+        let chartPendingInstance = null;
+        let chartNoInstance = null;
+
+        let globalListYes = [];
+        let globalListPending = [];
+        let globalListNo = [];
+
+        let currentTab = 'si';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            document.getElementById('searchInput').addEventListener('input', (e) => filterData(e.target.value));
+
+            // Delegación de eventos: copiar links y editar mesa
+            document.addEventListener('click', e => {
+                const btn = e.target.closest('[data-copiar]');
+                if (btn) copiarConAviso(btn, btn.dataset.copiar);
+            });
+            document.getElementById('table-si').addEventListener('change', e => {
+                if (e.target.classList.contains('mesa-input')) guardarMesa(e.target);
+            });
+            document.getElementById('table-si').addEventListener('keydown', e => {
+                if (e.target.classList.contains('mesa-input') && e.key === 'Enter') e.target.blur();
+            });
+        });
+
+        async function fetchData() {
+            estadoCargando(true, 'Actualizar Datos');
+            try {
+                const [resConf, resLista] = await Promise.all([apiAdmin('confirmados'), apiAdmin('invitados')]);
+                processData(resConf.confirmados, resLista.invitados);
+
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('searchInput').placeholder = "Buscar familia...";
+            } catch (error) {
+                console.error(error);
+                alert("Error cargando datos: " + error.message);
+            } finally {
+                estadoCargando(false, 'Actualizar Datos');
+            }
+        }
+
+        function processData(confirmaciones, listaOriginal) {
+            const mapaLista = {};
+            const idsConfirmados = new Set();
+
+            listaOriginal.forEach(row => {
+                if (row.id && tieneDatos(row)) mapaLista[String(row.id).toUpperCase()] = row;
+            });
+
+            globalListYes = [];
+            globalListNo = [];
+            globalListPending = [];
+
+            // 1. Procesar Confirmaciones (SI y NO)
+            confirmaciones.forEach(conf => {
+                const status = String(conf.asistira || "").toLowerCase().trim();
+                const idConf = String(conf.id || "").trim().toUpperCase();
+                if (idConf) idsConfirmados.add(idConf);
+
+                if (status === "si" || status === "sí") {
+                    globalListYes.push({
+                        id: idConf,
+                        familia: conf.familia,
+                        nombres: conf.nombres,
+                        mesa: conf.mesa || '',
+                        adu: num(conf.adultos),
+                        ado: num(conf.adolescentes),
+                        nin: num(conf.ninos),
+                        total: num(conf.cantidad) || (num(conf.adultos) + num(conf.adolescentes) + num(conf.ninos)),
+                    });
+                } else if (status === "no") {
+                    const original = mapaLista[idConf];
+                    globalListNo.push({
+                        id: idConf,
+                        familia: original ? nombreVisible(original) : conf.familia + " (ID perdido)",
+                        nombres: original ? original.nombres : "-",
+                        adu: original ? num(original.adultos) : 0,
+                        ado: original ? num(original.adolescentes) : 0,
+                        nin: original ? num(original.ninos) : 0,
+                        total: original ? sumaPersonas(original) : 0,
+                    });
+                }
+            });
+
+            // 2. Procesar Pendientes (en invitados.json pero sin respuesta)
+            Object.values(mapaLista).forEach(row => {
+                const id = String(row.id).toUpperCase();
+                if (!idsConfirmados.has(id)) {
+                    globalListPending.push({
+                        id,
+                        familia: nombreVisible(row),
+                        nombres: row.nombres,
+                        enviado: row.enviado === true,
+                        adu: num(row.adultos),
+                        ado: num(row.adolescentes),
+                        nin: num(row.ninos),
+                        total: sumaPersonas(row),
+                    });
+                }
+            });
+
+            updateStatsCards(globalListYes, 'si');
+            updateStatsCards(globalListPending, 'pending');
+            updateStatsCards(globalListNo, 'no');
+
+            filterData(document.getElementById('searchInput').value);
+        }
+
+        function filterData(query) {
+            const lowerQuery = query.toLowerCase();
+            const targetList = currentTab === 'si' ? globalListYes : (currentTab === 'pending' ? globalListPending : globalListNo);
+
+            const filtered = targetList.filter(item =>
+                String(item.familia || "").toLowerCase().includes(lowerQuery) ||
+                String(item.nombres || "").toLowerCase().includes(lowerQuery) ||
+                String(item.mesa || "").toLowerCase() === lowerQuery
+            );
+
+            if (currentTab === 'si') renderTableSi(filtered);
+            else if (currentTab === 'pending') renderTablePending(filtered);
+            else renderTableNo(filtered);
+        }
+
+        function updateStatsCards(data, type) {
+            let tAdu = 0, tAdo = 0, tNin = 0, tTotal = 0;
+            data.forEach(item => { tAdu += item.adu; tAdo += item.ado; tNin += item.nin; tTotal += item.total; });
+
+            // El total incluye a quienes solo tienen "Total" sin desglose
+            document.getElementById(`${type}-total`).innerText = tTotal;
+            document.getElementById(`${type}-adu`).innerText = tAdu;
+            document.getElementById(`${type}-ado`).innerText = tAdo;
+            document.getElementById(`${type}-nin`).innerText = tNin;
+
+            let colors;
+            if (type === 'si') colors = ['#2563eb', '#ca8a04', '#16a34a'];
+            else if (type === 'pending') colors = ['#ea580c', '#f97316', '#fdba74'];
+            else colors = ['#9ca3af', '#d1d5db', '#e5e7eb'];
+
+            const chartId = type === 'si' ? 'chartSi' : (type === 'pending' ? 'chartPending' : 'chartNo');
+            renderChart(chartId, [tAdu, tAdo, tNin], colors);
+        }
+
+        // --- GUARDAR MESA EN confirmados.json ---
+        async function guardarMesa(input) {
+            const id = input.dataset.id;
+            const mesa = input.value.trim();
+            const estado = input.nextElementSibling;
+            const item = globalListYes.find(i => i.id === id);
+            const anterior = item ? item.mesa : '';
+
+            input.className = 'mesa-input guardando';
+            estado.innerHTML = '<i class="ph ph-spinner animate-spin text-indigo-500"></i>';
+            try {
+                await apiAdmin('actualizar_mesa', { id, mesa });
+                if (item) item.mesa = mesa;
+                input.className = 'mesa-input ok';
+                estado.innerHTML = '<i class="ph-bold ph-check text-green-600"></i>';
+                setTimeout(() => {
+                    if (input.classList.contains('ok')) { input.className = 'mesa-input'; estado.innerHTML = ''; }
+                }, 1800);
+            } catch (error) {
+                input.className = 'mesa-input error';
+                estado.innerHTML = '<i class="ph-bold ph-warning text-red-600"></i>';
+                input.title = 'No se guardó: ' + error.message + ' (vuelve a editarla para reintentar)';
+                alert('No se pudo guardar la mesa de ' + (item ? item.familia : id) + ': ' + error.message +
+                    (anterior !== mesa ? `\nValor anterior: ${anterior || '(vacía)'}` : ''));
+            }
+        }
+
+        // --- RENDERIZADORES ---
+
+        function renderTableSi(data) {
+            const tbody = document.getElementById('table-si');
+            document.getElementById('si-count-rows').innerText = data.length + " filas";
+            if (data.length === 0) { tbody.innerHTML = emptyRow(8); return; }
+
+            tbody.innerHTML = data.map(item => `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
+                    <td class="px-6 py-4 text-center"><span class="bg-green-100 text-green-800 px-2 py-1 rounded font-bold">${item.total}</span></td>
+                    <td class="px-6 py-4 text-center text-blue-600">${item.adu}</td>
+                    <td class="px-6 py-4 text-center text-yellow-600">${item.ado}</td>
+                    <td class="px-6 py-4 text-center text-green-600">${item.nin}</td>
+                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="mesa-wrap">
+                            <input class="mesa-input" data-id="${esc(item.id)}" value="${esc(item.mesa)}" placeholder="—" maxlength="30" inputmode="text" aria-label="Mesa de ${esc(item.familia)}">
+                            <span class="mesa-estado"></span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button data-copiar="${esc(linkPase(item.id))}" title="Copia el link del pase con QR"
+                            class="flex items-center justify-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-lg hover:bg-green-100 text-xs font-bold transition whitespace-nowrap w-28 mx-auto">
+                            <i class="ph ph-qr-code text-lg"></i> Copiar QR
+                        </button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function renderTablePending(data) {
+            const tbody = document.getElementById('table-pending');
+            document.getElementById('pending-count-rows').innerText = data.length + " filas";
+            if (data.length === 0) { tbody.innerHTML = emptyRow(7); return; }
+
+            tbody.innerHTML = data.map(item => `
+                <tr class="hover:bg-orange-50/50 transition-colors">
+                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
+                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
+                    <td class="px-6 py-4 text-center text-gray-500">${item.adu}</td>
+                    <td class="px-6 py-4 text-center text-gray-500">${item.ado}</td>
+                    <td class="px-6 py-4 text-center text-gray-500">${item.nin}</td>
+                    <td class="px-6 py-4 text-center">${item.enviado
+                        ? '<i class="ph-fill ph-check-circle text-green-500 text-lg" title="Invitación enviada"></i>'
+                        : '<i class="ph ph-circle text-gray-300 text-lg" title="Aún no se envía"></i>'}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button data-copiar="${esc(linkInvitacion(item.id))}"
+                            class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 text-xs font-bold transition whitespace-nowrap">
+                            Copiar Link
+                        </button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function renderTableNo(data) {
+            const tbody = document.getElementById('table-no');
+            document.getElementById('no-count-rows').innerText = data.length + " filas";
+            if (data.length === 0) { tbody.innerHTML = emptyRow(6); return; }
+
+            tbody.innerHTML = data.map(item => `
+                <tr class="hover:bg-red-50/30 transition-colors">
+                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
+                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
+                    <td class="px-6 py-4 text-center text-gray-400">${item.adu}</td>
+                    <td class="px-6 py-4 text-center text-gray-400">${item.ado}</td>
+                    <td class="px-6 py-4 text-center text-gray-400">${item.nin}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button data-copiar="${esc(linkInvitacion(item.id))}" class="text-gray-400 hover:text-blue-600 underline text-xs">
+                            Copiar Link
+                        </button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function emptyRow(columnas) {
+            return `<tr><td colspan="${columnas}" class="text-center py-8 text-gray-400">No se encontraron resultados</td></tr>`;
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const inactiveClass = "flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive";
+            const activa = { si: 'active-si', pending: 'active-pending', no: 'active-no' };
+
+            ['si', 'pending', 'no'].forEach(t => {
+                document.getElementById('tab-' + t).className = t === tab ? inactiveClass.replace('tab-inactive', activa[t]) : inactiveClass;
+                document.getElementById('view-' + t).classList.toggle('hidden', t !== tab);
+            });
+
+            filterData(document.getElementById('searchInput').value);
+        }
+
+        function renderChart(canvasId, data, colors) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (canvasId === 'chartSi' && chartSiInstance) chartSiInstance.destroy();
+            if (canvasId === 'chartPending' && chartPendingInstance) chartPendingInstance.destroy();
+            if (canvasId === 'chartNo' && chartNoInstance) chartNoInstance.destroy();
+
+            const newChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Adultos', 'Adolescentes', 'Niños'],
+                    datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 10 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            });
+
+            if (canvasId === 'chartSi') chartSiInstance = newChart;
+            if (canvasId === 'chartPending') chartPendingInstance = newChart;
+            if (canvasId === 'chartNo') chartNoInstance = newChart;
+        }
+    </script>
+</body>
+</html>

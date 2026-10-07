@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Control de Visibilidad del Formulario</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="admin.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .estado {
+            text-align: center;
+            font-weight: bold;
+            padding: 12px;
+            border-radius: 6px;
+            background: #eee;
+            color: #666;
+        }
+        .estado.abierto { background: #d4edda; color: #155724; }
+        .estado.cerrado { background: #f8d7da; color: #721c24; }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .button-group button {
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .button-group button:disabled { opacity: 0.6; cursor: wait; }
+
+        .button-group button.activate {
+            background-color: #28a745;
+        }
+
+        .button-group button.deactivate {
+            background-color: #dc3545;
+        }
+
+        .volver {
+            display: block;
+            text-align: center;
+            margin-top: 25px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .button-group button {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Control de Visibilidad del Formulario</h1>
+        <div class="estado" id="estado">Consultando estado...</div>
+        <div class="button-group">
+            <button class="activate" onclick="setFormVisibility(true)">Mostrar Formulario</button>
+            <button class="deactivate" onclick="setFormVisibility(false)">Ocultar Formulario</button>
+        </div>
+        <a class="volver" href="panel.html">← Volver al panel</a>
+    </div>
+
+    <script>
+        function pintarEstado(visible) {
+            const el = document.getElementById('estado');
+            el.className = 'estado ' + (visible ? 'abierto' : 'cerrado');
+            el.textContent = visible
+                ? 'Estado actual: los invitados SÍ pueden confirmar'
+                : 'Estado actual: el formulario está OCULTO';
+        }
+
+        async function setFormVisibility(visible) {
+            const botones = document.querySelectorAll('.button-group button');
+            botones.forEach(b => b.disabled = true);
+            try {
+                const res = await apiAdmin('formulario', { visible });
+                pintarEstado(res.formVisible);
+                alert(res.mensaje);
+            } catch (error) {
+                alert('Error al cambiar el estado de visibilidad: ' + error.message);
+            } finally {
+                botones.forEach(b => b.disabled = false);
+            }
+        }
+
+        fetch('api.php?accion=formulario&t=' + Date.now())
+            .then(r => r.json())
+            .then(data => pintarEstado(data.formVisible))
+            .catch(() => { document.getElementById('estado').textContent = 'No se pudo consultar el estado.'; });
+    </script>
+</body>
+</html>

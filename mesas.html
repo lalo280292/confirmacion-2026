@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distribución de Mesas - Plan y Fiesta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="admin.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        @media print {
+            .no-print { display: none; }
+            .break-inside-avoid { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <header class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-sm gap-4 no-print">
+            <div>
+                <a href="panel.html" class="text-xs font-semibold text-gray-400 hover:text-blue-600 flex items-center gap-1 mb-1"><i class="ph ph-arrow-left"></i> Panel de control</a>
+                <h1 class="text-2xl font-bold text-gray-900">Distribución de Mesas</h1>
+                <p class="text-gray-500 text-sm">Lista general (invitados.json) · las mesas se asignan en Registro</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btnRefresh" onclick="fetchData()" class="flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-100 transition font-bold text-sm">
+                    <i id="iconRefresh" class="ph ph-arrows-clockwise text-xl"></i>
+                    <span id="textRefresh">Actualizar</span>
+                </button>
+
+                <button onclick="window.print()" class="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition font-bold text-sm">
+                    <i class="ph ph-printer text-xl"></i> Imprimir
+                </button>
+            </div>
+        </header>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm sticky top-2 z-20 border border-gray-200 no-print">
+            <div class="relative">
+                <i class="ph ph-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-lg"></i>
+                <input type="text" id="searchInput"
+                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    placeholder="Buscar familia para ver en qué mesa está..." disabled>
+            </div>
+        </div>
+
+        <div id="tablesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div class="col-span-full text-center py-10 text-gray-500 animate-pulse">
+                Cargando distribución...
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let allGuests = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            document.getElementById('searchInput').addEventListener('input', (e) => filterTables(e.target.value));
+        });
+
+        async function fetchData() {
+            estadoCargando(true);
+            try {
+                const res = await apiAdmin('invitados');
+
+                // Solo filas con datos (aunque no tengan Familia o Nombre)
+                allGuests = res.invitados.filter(tieneDatos).map(row => ({ ...row, familia: nombreVisible(row) }));
+                renderGrid(agruparPorMesa(allGuests));
+
+                const searchInput = document.getElementById('searchInput');
+                searchInput.disabled = false;
+                filterTables(searchInput.value);
+            } catch (error) {
+                document.getElementById('tablesContainer').innerHTML =
+                    `<div class="col-span-full text-center text-red-500 p-4 bg-white rounded border border-red-200">
+                        Error al cargar: ${esc(error.message)}
+                    </div>`;
+            } finally {
+                estadoCargando(false);
+            }
+        }
+
+        function renderGrid({ mesas, orden, sinMesa }) {
+            const container = document.getElementById('tablesContainer');
+            container.innerHTML = '';
+
+            if (!orden.length && !sinMesa.length) {
+                container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400">Aún no hay familias registradas.</div>';
+                return;
+            }
+
+            orden.forEach(key => {
+                const total = mesas[key].reduce((acc, g) => acc + sumaPersonas(g), 0);
+                container.appendChild(createTableCard(key, total + ' pax', mesas[key]));
+            });
+
+            if (sinMesa.length) {
+                container.appendChild(createTableCard("Sin Mesa", sinMesa.length + " fam", sinMesa, true));
+            }
+        }
+
+        function createTableCard(title, count, guests, isUnassigned = false) {
+            const div = document.createElement('div');
+            div.className = `bg-white rounded-xl shadow-sm border ${isUnassigned ? 'border-red-200 bg-red-50' : 'border-gray-200'} overflow-hidden flex flex-col break-inside-avoid`;
+            const headerColor = isUnassigned ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800';
+
+            const guestsHtml = guests.map(g => {
+                const adu = num(g.adultos), ado = num(g.adolescentes), nin = num(g.ninos);
+                return `
+                    <div class="border-b border-gray-100 last:border-0 py-3 px-4 hover:bg-gray-50 search-item transition-colors">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0">
+                                <p class="font-bold text-gray-800 text-sm">${esc(g.familia) || 'Sin Nombre'}</p>
+                                <p class="text-xs text-gray-500 truncate max-w-[180px]" title="${esc(g.nombres)}">${esc(g.nombres)}</p>
+                            </div>
+                            <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap">
+                                ${sumaPersonas(g)} p.
+                            </span>
+                        </div>
+                        <div class="mt-1 flex gap-2 text-[10px] text-gray-400 uppercase tracking-wide">
+                            ${adu > 0 ? `<span>Adul: ${adu}</span>` : ''}
+                            ${ado > 0 ? `<span>Adol: ${ado}</span>` : ''}
+                            ${nin > 0 ? `<span>Niñ: ${nin}</span>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            div.innerHTML = `
+                <div class="${headerColor} px-4 py-3 flex justify-between items-center border-b border-gray-200/50">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        ${!isUnassigned ? '<i class="ph ph-chair"></i>' : '<i class="ph ph-warning-circle"></i>'}
+                        ${isNaN(title) ? esc(title) : 'Mesa ' + title}
+                    </h3>
+                    <span class="text-xs font-bold bg-white/50 px-2 py-1 rounded shadow-sm">${count}</span>
+                </div>
+                <div class="flex-1">${guestsHtml}</div>`;
+            return div;
+        }
+
+        function filterTables(query) {
+            const lowerQuery = query.toLowerCase();
+            document.querySelectorAll('#tablesContainer > div').forEach(card => {
+                const rows = card.querySelectorAll('.search-item');
+                let hasMatch = false;
+                rows.forEach(row => {
+                    const match = row.innerText.toLowerCase().includes(lowerQuery);
+                    row.style.display = match ? 'block' : 'none';
+                    if (match) hasMatch = true;
+                });
+                if (rows.length) card.style.display = (lowerQuery === "" || hasMatch) ? 'flex' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!--
+    FRAGMENTO para pegar dentro de la invitación (no es una página completa).
+    Envía la confirmación a confirmados.json y las felicitaciones a firmas.json (por medio de api.php).
+    La invitación debe estar en la misma carpeta que api.php y abrirse con ?id=XXXXX
+-->
+<style>
+    #contenedor-formulario {
+        font-family: sans-serif;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        display: none; /* Se muestra con JS solo si el formulario está activo y el ID es válido */
+    }
+
+    #my-google-sheet .form-group {
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    #my-google-sheet label {
+        color: #333;
+        font-size: 19px;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    #my-google-sheet textarea,
+    #my-google-sheet select,
+    #my-google-sheet input[type="text"] {
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 4px;
+        font-size: 16px; /* evita el zoom automático en iPhone */
+    }
+
+    #my-google-sheet select {
+        width: auto;
+        min-width: 100px;
+        max-width: 150px;
+    }
+
+    #my-google-sheet .btn-primary {
+        background-color: #806A91;
+        color: #fff;
+        border: none;
+        padding: 12px 20px;
+        cursor: pointer;
+        width: 100%;
+        font-size: 16px;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+    }
+
+    #my-google-sheet .btn-primary:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+
+    #my-google-sheet .hidden-field {
+        display: none;
+    }
+
+    #my-google-sheet .aviso-confirmacion {
+        background: #f4f0f7;
+        color: #5d4a6d;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 15px;
+        font-size: 15px;
+        text-align: center;
+        display: none;
+    }
+</style>
+
+<div id="contenedor-formulario">
+    <form id="my-google-sheet" novalidate>
+        <div class="aviso-confirmacion" id="avisoConfirmacion"></div>
+
+        <!-- Solo se muestra si la invitación no tiene "Familia o Nombre" capturado en el registro -->
+        <div class="form-group hidden-field" id="container-nombre">
+            <label for="nombre">Tu nombre o familia:</label>
+            <input type="text" name="nombre" id="nombre" maxlength="150" autocomplete="name">
+        </div>
+
+        <input type="hidden" name="id" id="idField">
+
+        <div class="form-group">
+            <label>¿Asistirá?</label>
+            <div>
+                <label style="display:inline-block; margin: 0 10px;">
+                    <input type="radio" name="asistira" value="Si" required> Sí
+                </label>
+                <label style="display:inline-block; margin: 0 10px;">
+                    <input type="radio" name="asistira" value="No" required> No
+                </label>
+            </div>
+        </div>
+
+        <div id="detallesAsistencia" style="display: none;">
+            <div class="form-group" id="container-personas">
+                <label for="cantidad_personas">Total Personas:</label>
+                <select name="cantidad_personas" id="cantidad_personas"></select>
+            </div>
+
+            <div class="form-group" id="container-adultos">
+                <label for="cantidad_adultos">Adultos:</label>
+                <select name="cantidad_adultos" id="cantidad_adultos"></select>
+            </div>
+
+            <div class="form-group" id="container-adolescentes">
+                <label for="cantidad_adolescentes">Adolescentes:</label>
+                <select name="cantidad_adolescentes" id="cantidad_adolescentes"></select>
+            </div>
+
+            <div class="form-group" id="container-ninos">
+                <label for="cantidad_ninos">Niños:</label>
+                <select name="cantidad_ninos" id="cantidad_ninos"></select>
+            </div>
+
+            <div class="form-group">
+                <label for="nombres_personas">Nombres de los asistentes:</label>
+                <textarea name="nombres_personas" id="nombres_personas" rows="4" maxlength="1000"></textarea>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="felicitaciones">Felicitaciones o comentarios:</label>
+            <textarea name="felicitaciones" id="felicitaciones" rows="5" maxlength="2000"></textarea>
+        </div>
+
+        <input type="hidden" name="mesa" id="mesaField">
+
+        <button type="submit" class="btn-primary" id="btnSubmit">Confirmar</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    const API_URL = 'api.php';
+    const MAX_SIN_ASIGNAR = 10; // si la invitación no tiene cantidad, se puede elegir de 1 a 10 (igual que config.php)
+
+    function iniciar() {
+        const id = new URLSearchParams(window.location.search).get('id');
+        const form = document.getElementById('my-google-sheet');
+        const contenedor = document.getElementById('contenedor-formulario');
+        const detallesDiv = document.getElementById('detallesAsistencia');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const desglose = ['cantidad_adultos', 'cantidad_adolescentes', 'cantidad_ninos'];
+        let invitado = null;
+
+        if (!id) {
+            console.warn('Falta el ID en la URL');
+            return;
+        }
+        document.getElementById('idField').value = id;
+
+        // 1. Una sola petición: estado del formulario + datos del invitado (compartida con datos_invitado.html)
+        window.__datosInvitado = window.__datosInvitado ||
+            fetch(`${API_URL}?accion=invitado&id=${encodeURIComponent(id)}`, { cache: 'no-store' }).then(r => r.json());
+
+        window.__datosInvitado
+            .then(data => {
+                if (!data.ok) {
+                    console.warn('Invitación no encontrada:', id);
+                    return;
+                }
+                if (!data.formVisible) return; // El formulario está desactivado en control_formulario.html
+                invitado = data.invitado;
+                prellenarFormulario(invitado, data.confirmacion);
+                contenedor.style.display = 'block';
+            })
+            .catch(err => console.error('Error al cargar la invitación:', err));
+
+        // 2. Llena un selector de 0 (o 1) hasta el máximo asignado
+        function populateSelect(selectName, containerId, count, startFromOne = false, porDefecto = null) {
+            const container = document.getElementById(containerId);
+            const select = form.querySelector(`select[name="${selectName}"]`);
+            const max = parseInt(count, 10) || 0;
+            select.innerHTML = '';
+
+            if (max > 0) {
+                container.style.display = 'block';
+                for (let i = startFromOne ? 1 : 0; i <= max; i++) {
+                    select.add(new Option(i, i));
+                }
+                select.value = porDefecto ?? max; // El máximo por defecto
+            } else {
+                container.style.display = 'none';
+                select.add(new Option(0, 0));
+                select.value = 0;
+            }
+            select.dataset.max = max;
+            select.dataset.defecto = select.value;
+        }
+
+        function hayDesglose() {
+            return desglose.some(n => document.getElementById(n).dataset.max > 0);
+        }
+
+        function prellenarFormulario(data, confirmacion) {
+            // Si en el registro no se escribió "Familia o Nombre", se le pide al invitado
+            const sinNombre = !String(data.familia || '').trim();
+            document.getElementById('container-nombre').classList.toggle('hidden-field', !sinNombre);
+            document.getElementById('nombre').value = data.familia || (confirmacion && confirmacion.familia) || '';
+            document.getElementById('mesaField').value = data.mesa || '';
+
+            const total = Math.max(parseInt(data.total, 10) || 0,
+                (parseInt(data.adultos, 10) || 0) + (parseInt(data.adolescentes, 10) || 0) + (parseInt(data.ninos, 10) || 0));
+            const sinCantidad = total === 0;
+
+            populateSelect('cantidad_personas', 'container-personas', sinCantidad ? MAX_SIN_ASIGNAR : total, true, sinCantidad ? 1 : null);
+            populateSelect('cantidad_adultos', 'container-adultos', data.adultos, false);
+            populateSelect('cantidad_adolescentes', 'container-adolescentes', data.adolescentes, false);
+            populateSelect('cantidad_ninos', 'container-ninos', data.ninos, false);
+
+            // Si ya había confirmado, se muestran sus respuestas para que pueda corregirlas
+            if (confirmacion) {
+                const aviso = document.getElementById('avisoConfirmacion');
+                aviso.textContent = confirmacion.asistira === 'Si'
+                    ? '✔ Ya confirmaste tu asistencia. Si necesitas cambiar algo, envía el formulario de nuevo.'
+                    : 'Nos indicaste que no podrás asistir. Si cambias de opinión, envía el formulario de nuevo.';
+                aviso.style.display = 'block';
+                btnSubmit.textContent = 'Actualizar confirmación';
+
+                const radio = form.querySelector(`input[name="asistira"][value="${confirmacion.asistira}"]`);
+                if (radio) radio.checked = true;
+                if (confirmacion.asistira === 'Si') {
+                    detallesDiv.style.display = 'block';
+                    setValor('cantidad_adultos', confirmacion.adultos);
+                    setValor('cantidad_adolescentes', confirmacion.adolescentes);
+                    setValor('cantidad_ninos', confirmacion.ninos);
+                    setValor('cantidad_personas', confirmacion.cantidad);
+                    document.getElementById('nombres_personas').value = confirmacion.nombres || '';
+                }
+            }
+        }
+
+        function setValor(nombre, valor) {
+            const select = document.getElementById(nombre);
+            if ([...select.options].some(o => o.value === String(valor))) select.value = String(valor);
+        }
+
+        // 3. El total se ajusta solo al cambiar adultos / adolescentes / niños
+        desglose.forEach(nombre => {
+            document.getElementById(nombre).addEventListener('change', () => {
+                const suma = desglose.reduce((acc, n) => acc + (parseInt(document.getElementById(n).value, 10) || 0), 0);
+                if (suma > 0) setValor('cantidad_personas', suma);
+            });
+        });
+
+        // 4. Lógica de Radio Buttons (Si/No)
+        form.querySelectorAll('input[name="asistira"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'Si') {
+                    detallesDiv.style.display = 'block';
+                    // Al volver a "Sí" se restauran los valores iniciales
+                    ['cantidad_personas', ...desglose].forEach(n => {
+                        const sel = document.getElementById(n);
+                        if (sel.dataset.max > 0) sel.value = sel.dataset.defecto;
+                    });
+                } else {
+                    detallesDiv.style.display = 'none';
+                }
+            });
+        });
+
+        // 5. Envío del formulario
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const asistiraVal = form.querySelector('input[name="asistira"]:checked')?.value;
+            if (!asistiraVal) return alert('Por favor, indica si asistirás.');
+
+            const campoNombre = document.getElementById('nombre');
+            if (!document.getElementById('container-nombre').classList.contains('hidden-field') && !campoNombre.value.trim()) {
+                campoNombre.focus();
+                return alert('Por favor, escribe tu nombre o el de tu familia.');
+            }
+
+            if (asistiraVal === 'Si') {
+                const suma = desglose.reduce((acc, n) => acc + (parseInt(document.getElementById(n).value, 10) || 0), 0);
+                const total = parseInt(document.getElementById('cantidad_personas').value, 10) || 0;
+                if (hayDesglose() ? suma < 1 : total < 1) return alert('Indica cuántas personas asistirán.');
+            }
+
+            btnSubmit.textContent = 'Enviando...';
+            btnSubmit.style.backgroundColor = 'green';
+            btnSubmit.disabled = true;
+
+            fetch(`${API_URL}?accion=confirmar`, { method: 'POST', body: new FormData(form) })
+                .then(res => res.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor.' })))
+                .then(data => {
+                    if (!data.ok) throw new Error(data.error || 'No se pudo registrar la confirmación.');
+
+                    alert('¡Confirmación recibida!');
+                    btnSubmit.textContent = '¡Gracias!';
+
+                    // Redirección al pase QR si la respuesta es Sí
+                    if (asistiraVal !== 'No') {
+                        window.location.href = 'paseqr.html?id=' + encodeURIComponent(id);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error al enviar el registro: ' + err.message);
+                    btnSubmit.textContent = 'Reintentar';
+                    btnSubmit.style.backgroundColor = '#915858';
+                    btnSubmit.disabled = false;
+                });
+        });
+    }
+
+    // Funciona aunque el fragmento se inserte después de que cargó la página
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+</script>

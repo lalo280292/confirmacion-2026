@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Recepción - Escáner de Invitados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="admin.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .entrar { animation: entrar .35s ease-out both; }
+        @keyframes entrar { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+        .pulso { animation: pulso 1.6s ease-out infinite; }
+        @keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 100% { box-shadow: 0 0 0 22px rgba(255,255,255,0); } }
+        #lector video { border-radius: 18px; object-fit: cover; }
+        #lector { overflow: hidden; border-radius: 18px; }
+        .stepper button:disabled { opacity: .35; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <!-- BARRA SUPERIOR -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-lg">
+        <div class="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="h-9 w-9 rounded-xl bg-white/10 grid place-items-center shrink-0">
+                    <i id="iconoModo" class="ph-fill ph-ticket text-xl"></i>
+                </div>
+                <div class="min-w-0">
+                    <p id="tituloModo" class="font-extrabold leading-tight truncate">Mi confirmación</p>
+                    <p id="subtituloModo" class="text-[11px] text-slate-400 leading-tight">Datos de tu pase de acceso</p>
+                </div>
+            </div>
+            <div id="resumenRecepcion" class="hidden text-right shrink-0">
+                <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Han ingresado</p>
+                <p class="font-extrabold text-lg leading-tight"><span id="resIngresados">0</span><span class="text-slate-400 text-sm font-semibold"> / <span id="resConfirmados">0</span></span></p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-xl mx-auto p-4 space-y-4 pb-24">
+
+        <!-- BUSCADOR / CÁMARA (solo en modo recepción) -->
+        <section id="panelBusqueda" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <button id="btnCamara" onclick="alternarCamara()"
+                class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[.99] text-white font-bold py-4 rounded-2xl text-lg transition">
+                <i class="ph-bold ph-qr-code text-2xl"></i> <span>Escanear código QR</span>
+            </button>
+            <div id="contLector" class="hidden">
+                <div id="lector" class="bg-black aspect-square w-full"></div>
+                <p class="text-center text-xs text-slate-400 mt-2">Apunta la cámara al código QR del pase</p>
+            </div>
+            <form id="formBuscar" class="flex gap-2" autocomplete="off">
+                <input id="inputCodigo" type="text" maxlength="20" placeholder="o escribe el código (ej. KZ83C)"
+                    class="mono flex-1 min-w-0 uppercase tracking-widest text-center text-lg font-bold border-2 border-slate-200 rounded-2xl px-3 py-3 bg-slate-50 focus:border-indigo-500 focus:bg-white outline-none placeholder:normal-case placeholder:tracking-normal placeholder:font-medium placeholder:text-sm placeholder:font-sans">
+                <button class="bg-slate-900 text-white rounded-2xl px-5 font-bold hover:bg-slate-700 transition" aria-label="Buscar">
+                    <i class="ph-bold ph-magnifying-glass text-xl"></i>
+                </button>
+            </form>
+        </section>
+
+        <!-- RESULTADO -->
+        <section id="resultado"></section>
+
+        <!-- PIE -->
+        <div class="text-center space-y-2 pt-2">
+            <button id="btnRefresh" onclick="recargarActual()" class="hidden inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 text-sm font-semibold">
+                <i id="iconRefresh" class="ph ph-arrows-clockwise text-lg"></i>
+                <span id="textRefresh">Actualizar datos</span>
+            </button>
+            <div>
+                <button id="btnSalirRecepcion" onclick="cambiarModo(false)" class="hidden text-xs text-slate-400 underline">Salir del modo recepción en este dispositivo</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ===== MODO RECEPCIÓN =====
+        // Se activa en los celulares del personal con escaner.html?recepcion=1 (enlace en el panel).
+        // Así el invitado que abre su pase solo ve sus datos y no puede registrar entradas.
+        const MODO_KEY = 'invitaciones_modo_recepcion';
+        const parametros = new URLSearchParams(location.search);
+        if (parametros.has('recepcion')) guardarStorage(MODO_KEY, parametros.get('recepcion') === '1' ? '1' : '');
+        let recepcion = leerStorage(MODO_KEY) === '1';
+
+        let actual = null;        // datos del código que se está viendo
+        let lector = null;        // cámara (html5-qrcode)
+        let personasElegidas = 1;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            aplicarModo();
+            document.getElementById('formBuscar').addEventListener('submit', e => {
+                e.preventDefault();
+                const codigo = document.getElementById('inputCodigo').value.trim().toUpperCase();
+                if (codigo) abrirCodigo(codigo);
+            });
+
+            const id = parametros.get('id');
+            if (id) cargar(id);
+            else if (recepcion) pintarInicio();
+            else pintarError('No se especificó un código en el enlace.', 'Abre esta página desde tu pase de acceso.');
+        });
+
+        function aplicarModo() {
+            document.getElementById('tituloModo').textContent = recepcion ? 'Recepción' : 'Mi confirmación';
+            document.getElementById('subtituloModo').textContent = recepcion ? 'Control de acceso al evento' : 'Datos de tu pase de acceso';
+            document.getElementById('iconoModo').className = recepcion ? 'ph-fill ph-scan text-xl' : 'ph-fill ph-ticket text-xl';
+            ['panelBusqueda', 'resumenRecepcion', 'btnSalirRecepcion'].forEach(id =>
+                document.getElementById(id).classList.toggle('hidden', !recepcion));
+            if (recepcion) cargarResumen();
+        }
+
+        function cambiarModo(activo) {
+            if (!activo && !confirm('¿Salir del modo recepción en este dispositivo?')) return;
+            guardarStorage(MODO_KEY, activo ? '1' : '');
+            recepcion = activo;
+            detenerCamara();
+            aplicarModo();
+            if (actual) pintarResultado(actual); else if (recepcion) pintarInicio();
+        }
+
+        // ===== CARGA DE DATOS =====
+
+        function abrirCodigo(id) {
+            history.replaceState(null, '', '?id=' + encodeURIComponent(id));
+            cargar(id);
+        }
+
+        function recargarActual() {
+            if (actual) cargar(actual.id);
+        }
+
+        async function cargar(id) {
+            const btn = document.getElementById('btnRefresh');
+            btn.classList.remove('hidden');
+            estadoCargando(true, 'Actualizar datos');
+            pintarCargando(id);
+            try {
+                const res = await fetch(`api.php?accion=escaneo&id=${encodeURIComponent(id)}&t=${Date.now()}`, { cache: 'no-store' });
+                const data = await res.json().catch(() => ({ ok: false, error: 'Error de conexión.' }));
+                if (!data.ok) {
+                    actual = null;
+                    if (res.status === 404) pintarError('Código no encontrado', `El código ${String(id).toUpperCase()} no existe en la lista de invitados.`, true);
+                    else throw new Error(data.error);
+                    return;
+                }
+                actual = data;
+                pintarResultado(data);
+                if (recepcion && navigator.vibrate) navigator.vibrate(60);
+            } catch (error) {
+                console.error(error);
+                pintarError('No se pudo cargar', error.message || 'Revisa la conexión a internet.');
+            } finally {
+                estadoCargando(false, 'Actualizar datos');
+            }
+        }
+
+        async function cargarResumen() {
+            try {
+                const r = await (await fetch('api.php?accion=resumen_accesos&t=' + Date.now(), { cache: 'no-store' })).json();
+                if (!r.ok) return;
+                document.getElementById('resIngresados').textContent = r.personas_ingresadas;
+                document.getElementById('resConfirmados').textContent = r.personas_confirmadas;
+            } catch (e) { /* el resumen es opcional */ }
+        }
+
+        // ===== ESTADO DEL CÓDIGO =====
+
+        function calcularEstado(d) {
+            const conf = d.confirmacion;
+            const inv = d.invitado;
+            const esperadas = conf && conf.asistira === 'Si' ? num(conf.cantidad) : (inv ? sumaPersonas(inv) : 0);
+            const ingresadas = d.accesos.reduce((a, x) => a + num(x.personas), 0);
+            const ultima = d.accesos.length ? d.accesos[d.accesos.length - 1] : null;
+            const base = { esperadas, ingresadas, ultima, restantes: Math.max(esperadas - ingresadas, 0) };
+
+            if (ingresadas > 0 && (esperadas === 0 || ingresadas >= esperadas)) {
+                return { ...base, clave: 'usado', color: 'amber', icono: 'ph-fill ph-warning-circle',
+                    titulo: 'Código ya utilizado', detalle: `Ingresó ${ingresadas} ${ingresadas === 1 ? 'persona' : 'personas'} · ${hora(ultima.fecha)}` };
+            }
+            if (ingresadas > 0) {
+                return { ...base, clave: 'parcial', color: 'sky', icono: 'ph-fill ph-users-three',
+                    titulo: `Ingresaron ${ingresadas} de ${esperadas}`, detalle: `Faltan ${base.restantes} por llegar` };
+            }
+            if (!conf) {
+                return { ...base, clave: 'sinConfirmar', color: 'orange', icono: 'ph-fill ph-question',
+                    titulo: 'No confirmó asistencia', detalle: 'El código es válido, pero no respondió el formulario' };
+            }
+            if (conf.asistira !== 'Si') {
+                return { ...base, clave: 'no', color: 'rose', icono: 'ph-fill ph-x-circle',
+                    titulo: 'Respondió que NO asistiría', detalle: 'Confirmó el ' + fechaLarga(conf.fecha) };
+            }
+            return { ...base, clave: 'ok', color: 'emerald', icono: 'ph-fill ph-check-circle',
+                titulo: recepcion ? 'Puede pasar' : 'Asistencia confirmada', detalle: recepcion ? 'Confirmado · aún no ha ingresado' : 'Tu pase aún no se ha usado' };
+        }
+
+        const COLORES = {
+            emerald: 'bg-gradient-to-br from-emerald-500 to-green-600',
+            amber:   'bg-gradient-to-br from-amber-400 to-orange-500',
+            sky:     'bg-gradient-to-br from-sky-500 to-indigo-500',
+            orange:  'bg-gradient-to-br from-orange-400 to-amber-500',
+            rose:    'bg-gradient-to-br from-rose-500 to-red-600',
+            slate:   'bg-gradient-to-br from-slate-500 to-slate-700',
+        };
+
+        // ===== PINTAR =====
+
+        function pintarResultado(d) {
+            const est = calcularEstado(d);
+            const conf = d.confirmacion;
+            const inv = d.invitado || {};
+            const fuente = conf && conf.asistira === 'Si' ? conf : inv;
+            const nombre = conf ? conf.familia : (inv.nombre_visible || nombreVisible(inv));
+            const mesa = (conf && conf.mesa) || inv.mesa || '';
+            const adu = num(fuente.adultos), ado = num(fuente.adolescentes), nin = num(fuente.ninos);
+            const nombres = (conf && conf.asistira === 'Si' ? conf.nombres : inv.nombres) || '';
+            personasElegidas = Math.max(est.restantes, 1);
+
+            const chips = [
+                adu ? `<span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">${adu} adulto${adu > 1 ? 's' : ''}</span>` : '',
+                ado ? `<span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold">${ado} adolescente${ado > 1 ? 's' : ''}</span>` : '',
+                nin ? `<span class="px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold">${nin} niño${nin > 1 ? 's' : ''}</span>` : '',
+            ].join('');
+
+            document.getElementById('resultado').innerHTML = `
+                <article class="entrar bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- Estado -->
+                    <div class="${COLORES[est.color]} text-white px-5 pt-6 pb-5 text-center relative">
+                        <div class="mx-auto h-16 w-16 rounded-full bg-white/20 grid place-items-center ${est.clave === 'ok' && recepcion ? 'pulso' : ''}">
+                            <i class="${est.icono} text-4xl"></i>
+                        </div>
+                        <h2 class="mt-3 text-2xl font-black tracking-tight">${esc(est.titulo)}</h2>
+                        <p class="text-white/85 text-sm font-medium">${esc(est.detalle)}</p>
+                        <span class="mono absolute top-3 right-4 text-xs font-bold bg-black/15 rounded-lg px-2 py-1 tracking-widest">${esc(d.id)}</span>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <!-- Nombre -->
+                        <div class="text-center">
+                            <p class="text-[11px] uppercase tracking-widest font-bold text-slate-400">Invitación para</p>
+                            <h3 class="text-2xl font-extrabold text-slate-900 leading-tight break-words">${esc(nombre)}</h3>
+                        </div>
+
+                        <!-- Mesa y personas -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl ${mesa ? 'bg-indigo-50 border-indigo-100' : 'bg-yellow-50 border-yellow-200'} border p-4 text-center">
+                                <p class="text-[11px] uppercase tracking-widest font-bold ${mesa ? 'text-indigo-400' : 'text-yellow-600'}">Mesa</p>
+                                <p class="${mesa ? 'text-5xl text-indigo-700' : 'text-base text-yellow-700 pt-3'} font-black leading-none mt-1 break-words">${mesa ? esc(mesa) : 'Sin asignar'}</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-center">
+                                <p class="text-[11px] uppercase tracking-widest font-bold text-slate-400">${conf && conf.asistira === 'Si' ? 'Confirmados' : 'Invitados'}</p>
+                                <p class="text-5xl font-black text-slate-800 leading-none mt-1">${est.esperadas || '—'}</p>
+                            </div>
+                        </div>
+                        ${chips ? `<div class="flex flex-wrap justify-center gap-2 -mt-1">${chips}</div>` : ''}
+
+                        ${nombres ? `
+                        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                            <p class="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Nombres</p>
+                            <p class="text-slate-700 whitespace-pre-line break-words">${esc(nombres)}</p>
+                        </div>` : ''}
+
+                        ${conf ? `<p class="text-center text-xs text-slate-400"><i class="ph ph-calendar-check"></i> Confirmó el ${esc(fechaLarga(conf.fecha))}${conf.actualizado && conf.actualizado !== conf.fecha ? ' · actualizado ' + esc(fechaLarga(conf.actualizado)) : ''}</p>` : ''}
+
+                        ${pintarAccesos(d, est)}
+                    </div>
+                </article>
+                ${recepcion ? `
+                <button onclick="siguiente()" class="mt-4 w-full flex items-center justify-center gap-2 bg-white border-2 border-slate-200 hover:border-indigo-300 text-slate-700 font-bold py-3.5 rounded-2xl transition">
+                    <i class="ph-bold ph-qr-code text-xl"></i> Escanear siguiente
+                </button>` : ''}`;
+        }
+
+        function pintarAccesos(d, est) {
+            const porcentaje = est.esperadas ? Math.min(100, Math.round(est.ingresadas / est.esperadas * 100)) : (est.ingresadas ? 100 : 0);
+            const historial = d.accesos.slice().reverse().map(a => `
+                <li class="flex items-center justify-between py-2 text-sm">
+                    <span class="flex items-center gap-2 text-slate-600"><i class="ph-fill ph-sign-in text-emerald-500"></i> ${esc(fechaLarga(a.fecha))}</span>
+                    <span class="font-bold text-slate-800">${num(a.personas)} ${num(a.personas) === 1 ? 'persona' : 'personas'}</span>
+                </li>`).join('');
+
+            const barra = `
+                <div>
+                    <div class="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
+                        <span>Registro de entrada</span>
+                        <span>${est.ingresadas} / ${est.esperadas || '—'}</span>
+                    </div>
+                    <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full ${est.clave === 'usado' ? 'bg-amber-500' : 'bg-emerald-500'} rounded-full transition-all duration-500" style="width:${porcentaje}%"></div>
+                    </div>
+                </div>`;
+
+            if (!recepcion) {
+                return `
+                    <div class="border-t border-slate-100 pt-5 space-y-3">
+                        ${barra}
+                        ${historial ? `<ul class="divide-y divide-slate-100">${historial}</ul>`
+                            : '<p class="text-sm text-slate-400 text-center">Presenta tu pase QR en la entrada del evento.</p>'}
+                    </div>`;
+            }
+
+            const completo = est.clave === 'usado';
+            return `
+                <div class="border-t border-slate-100 pt-5 space-y-4">
+                    ${barra}
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-sm font-bold text-slate-600">¿Cuántos entran ahora?</span>
+                        <div class="stepper flex items-center bg-slate-100 rounded-2xl p-1">
+                            <button onclick="cambiarPersonas(-1)" id="btnMenos" class="h-11 w-11 rounded-xl bg-white shadow-sm grid place-items-center" aria-label="Menos"><i class="ph-bold ph-minus"></i></button>
+                            <span id="numPersonas" class="w-12 text-center text-2xl font-black">${personasElegidas}</span>
+                            <button onclick="cambiarPersonas(1)" class="h-11 w-11 rounded-xl bg-white shadow-sm grid place-items-center" aria-label="Más"><i class="ph-bold ph-plus"></i></button>
+                        </div>
+                    </div>
+                    <button id="btnRegistrar" onclick="registrarEntrada()"
+                        class="w-full flex items-center justify-center gap-2 ${completo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'} active:scale-[.99] text-white font-extrabold text-lg py-4 rounded-2xl shadow-sm transition">
+                        <i class="ph-bold ph-sign-in text-2xl"></i>
+                        <span>${completo ? 'Registrar otra entrada' : 'Registrar entrada'}</span>
+                    </button>
+                    ${historial ? `
+                    <div>
+                        <ul class="divide-y divide-slate-100">${historial}</ul>
+                        <button onclick="deshacerEntrada()" class="mt-1 text-xs text-rose-500 font-semibold hover:underline flex items-center gap-1">
+                            <i class="ph ph-arrow-counter-clockwise"></i> Deshacer la última entrada
+                        </button>
+                    </div>` : ''}
+                </div>`;
+        }
+
+        function pintarCargando(id) {
+            document.getElementById('resultado').innerHTML = `
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-10 text-center text-slate-400">
+                    <i class="ph ph-spinner animate-spin text-4xl block mx-auto mb-3"></i>
+                    Buscando <span class="mono font-bold text-slate-600">${esc(String(id).toUpperCase())}</span>...
+                </div>`;
+        }
+
+        function pintarInicio() {
+            document.getElementById('resultado').innerHTML = `
+                <div class="entrar bg-white rounded-3xl shadow-sm border border-dashed border-slate-300 p-8 text-center">
+                    <i class="ph-duotone ph-qr-code text-6xl text-indigo-400"></i>
+                    <h2 class="mt-2 text-lg font-extrabold text-slate-800">Listo para recibir invitados</h2>
+                    <p class="text-sm text-slate-500">Escanea el pase QR o escribe el código para ver los datos y registrar la entrada.</p>
+                </div>`;
+        }
+
+        function pintarError(titulo, detalle, buscarOtro = false) {
+            document.getElementById('resultado').innerHTML = `
+                <article class="entrar bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="${COLORES.rose} text-white px-5 py-7 text-center">
+                        <div class="mx-auto h-16 w-16 rounded-full bg-white/20 grid place-items-center"><i class="ph-fill ph-prohibit text-4xl"></i></div>
+                        <h2 class="mt-3 text-2xl font-black">${esc(titulo)}</h2>
+                        <p class="text-white/85 text-sm">${esc(detalle)}</p>
+                    </div>
+                    ${buscarOtro && recepcion ? `
+                    <div class="p-4"><button onclick="siguiente()" class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl">Escanear otro código</button></div>` : ''}
+                </article>`;
+            if (recepcion && navigator.vibrate) navigator.vibrate([80, 60, 80]);
+        }
+
+        // ===== ACCIONES DE RECEPCIÓN =====
+
+        function cambiarPersonas(delta) {
+            personasElegidas = Math.max(1, Math.min(99, personasElegidas + delta));
+            document.getElementById('numPersonas').textContent = personasElegidas;
+            document.getElementById('btnMenos').disabled = personasElegidas <= 1;
+        }
+
+        async function registrarEntrada() {
+            if (!actual) return;
+            const est = calcularEstado(actual);
+            if (est.clave === 'usado' && !confirm(`Este código ya se usó (${est.ingresadas} personas). ¿Registrar otra entrada de todos modos?`)) return;
+            if (est.clave === 'no' && !confirm('Este invitado respondió que NO asistiría. ¿Registrar la entrada de todos modos?')) return;
+
+            const btn = document.getElementById('btnRegistrar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-2xl"></i> Registrando...';
+            try {
+                const r = await apiAdmin('registrar_acceso', { id: actual.id, personas: personasElegidas });
+                actual.accesos = r.accesos;
+                pintarResultado(actual);
+                cargarResumen();
+                if (navigator.vibrate) navigator.vibrate(150);
+            } catch (error) {
+                alert('No se pudo registrar la entrada: ' + error.message);
+                pintarResultado(actual);
+            }
+        }
+
+        async function deshacerEntrada() {
+            if (!actual || !confirm('¿Borrar la última entrada registrada de este código?')) return;
+            try {
+                const r = await apiAdmin('deshacer_acceso', { id: actual.id });
+                actual.accesos = r.accesos;
+                pintarResultado(actual);
+                cargarResumen();
+            } catch (error) {
+                alert('No se pudo deshacer: ' + error.message);
+            }
+        }
+
+        function siguiente() {
+            document.getElementById('inputCodigo').value = '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            iniciarCamara();
+        }
+
+        // ===== CÁMARA (se carga solo cuando se usa) =====
+
+        function cargarLibreria() {
+            if (window.Html5Qrcode) return Promise.resolve();
+            return new Promise((ok, falla) => {
+                const s = document.createElement('script');
+                s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+                s.onload = ok;
+                s.onerror = () => falla(new Error('No se pudo cargar el lector de QR.'));
+                document.head.appendChild(s);
+            });
+        }
+
+        function alternarCamara() {
+            if (lector) detenerCamara(); else iniciarCamara();
+        }
+
+        async function iniciarCamara() {
+            if (lector) return;
+            const btn = document.getElementById('btnCamara');
+            try {
+                await cargarLibreria();
+                document.getElementById('contLector').classList.remove('hidden');
+                lector = new Html5Qrcode('lector');
+                await lector.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, alLeerQR, () => {});
+                btn.innerHTML = '<i class="ph-bold ph-x text-2xl"></i> <span>Cerrar cámara</span>';
+                btn.classList.replace('bg-indigo-600', 'bg-slate-700');
+            } catch (error) {
+                console.error(error);
+                lector = null;
+                document.getElementById('contLector').classList.add('hidden');
+                alert('No se pudo abrir la cámara. Revisa que la página esté en https y que diste permiso a la cámara.\n\nTambién puedes escribir el código a mano.');
+            }
+        }
+
+        async function detenerCamara() {
+            if (!lector) return;
+            try { await lector.stop(); lector.clear(); } catch (e) { /* ya estaba detenida */ }
+            lector = null;
+            document.getElementById('contLector').classList.add('hidden');
+            const btn = document.getElementById('btnCamara');
+            btn.innerHTML = '<i class="ph-bold ph-qr-code text-2xl"></i> <span>Escanear código QR</span>';
+            btn.classList.replace('bg-slate-700', 'bg-indigo-600');
+        }
+
+        // El QR del pase trae un link .../escaner.html?id=XXXXX; también acepta el código solo
+        function alLeerQR(texto) {
+            let id = '';
+            try { id = new URL(texto).searchParams.get('id') || ''; } catch (e) { /* no es un link */ }
+            if (!id && /^[A-Za-z0-9]{3,20}$/.test(texto.trim())) id = texto.trim();
+            if (!id) return; // QR que no es de un pase: se ignora y se sigue leyendo
+            detenerCamara();
+            abrirCodigo(id.toUpperCase());
+        }
+
+        // ===== FORMATO =====
+
+        function aFecha(valor) {
+            const d = new Date(String(valor || '').replace(' ', 'T'));
+            return isNaN(d) ? null : d;
+        }
+        function hora(valor) {
+            const d = aFecha(valor);
+            return d ? d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+        }
+        function fechaLarga(valor) {
+            const d = aFecha(valor);
+            return d ? d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : String(valor || '');
+        }
+    </script>
+</body>
+</html>

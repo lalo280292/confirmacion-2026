@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Descarga tu pase de acceso</title>
+    <script src="https://unpkg.com/qrious@4.0.2/dist/qrious.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 2em;
+        }
+        #datos-pase {
+            display: none;
+            text-align: center;
+            color: #444;
+            margin: 0 16px;
+            line-height: 1.5;
+        }
+        #datos-pase strong { color: #222; }
+        #mensaje {
+            display: none;
+            max-width: 480px;
+            margin: 30px auto;
+            padding: 20px;
+            text-align: center;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            color: #9a3412;
+        }
+        #pase-container {
+            display: none;
+            position: relative;
+            width: 80%;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        #pase {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        #qr-container {
+            position: absolute;
+            width: 50%;
+            left: 25%;
+            top: 80%;
+            transform: translateY(-50%);
+        }
+        #codigo {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        #buttons-container {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        #download-button, #confirmation-button {
+            margin: 10px;
+            padding: 15px 30px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #download-button:hover, #confirmation-button:hover {
+            background-color: #0056b3;
+        }
+        #download-button:disabled {
+            background-color: #9ab;
+            cursor: wait;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.5em;
+            }
+            #download-button, #confirmation-button {
+                width: 90%;
+                padding: 12px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Descarga tu pase de acceso</h1>
+    <p id="datos-pase"></p>
+    <div id="mensaje"></div>
+    <div id="buttons-container">
+        <button id="download-button" disabled>Descargar Pase</button>
+        <button id="confirmation-button">Consultar mis datos de confirmación</button>
+    </div>
+    <div id="pase-container">
+        <img id="pase" src="suqr.jpg" alt="Imagen de fondo PASE">
+        <div id="qr-container">
+            <canvas id="codigo"></canvas>
+        </div>
+    </div>
+
+    <script>
+        function obtenerIdDeUrl() {
+            return new URLSearchParams(window.location.search).get("id");
+        }
+
+        // El QR apunta a escaner.html en la MISMA carpeta que esta página (funciona también en subcarpetas)
+        function linkEscaner(id) {
+            return new URL('escaner.html?id=' + encodeURIComponent(id), window.location.href).href;
+        }
+
+        function crearQR(canvas, id, size) {
+            canvas.width = size;
+            canvas.height = size;
+            new QRious({
+                element: canvas,
+                value: linkEscaner(id),
+                size: size,
+                backgroundAlpha: 0,
+                foreground: "#000000",
+                level: "H",
+            });
+        }
+
+        function generarCodigoQR(id) {
+            const qrSize = Math.round(document.querySelector("#qr-container").getBoundingClientRect().width) || 300;
+            crearQR(document.querySelector("#codigo"), id, qrSize);
+        }
+
+        function downloadImage() {
+            const id = obtenerIdDeUrl();
+            const backgroundImage = document.querySelector('#pase');
+            const qrCanvas = document.querySelector('#codigo');
+
+            const canvas = document.createElement('canvas');
+            canvas.width = backgroundImage.naturalWidth;
+            canvas.height = backgroundImage.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+
+            // Posición del QR respecto a la imagen mostrada, convertida al tamaño real de la imagen
+            const paseRect = backgroundImage.getBoundingClientRect();
+            const qrRect = qrCanvas.getBoundingClientRect();
+            const escala = canvas.width / paseRect.width;
+            const x = (qrRect.left - paseRect.left) * escala;
+            const y = (qrRect.top - paseRect.top) * escala;
+            const lado = qrRect.width * escala;
+
+            // Se genera un QR nuevo al tamaño real para que la descarga salga nítida
+            const qrGrande = document.createElement('canvas');
+            crearQR(qrGrande, id, Math.round(lado));
+            ctx.drawImage(qrGrande, x, y, lado, lado);
+
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'pase_' + id + '.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function redirectToConfirmation() {
+            window.location.href = 'escaner.html?id=' + encodeURIComponent(obtenerIdDeUrl());
+        }
+
+        function mostrarMensaje(texto) {
+            const caja = document.querySelector('#mensaje');
+            caja.textContent = texto;
+            caja.style.display = 'block';
+        }
+
+        async function init() {
+            const id = obtenerIdDeUrl();
+            if (!id) {
+                mostrarMensaje('ID no proporcionado en la URL.');
+                return;
+            }
+
+            // El pase solo se entrega si la confirmación existe en confirmados.json y dice "Sí"
+            try {
+                const res = await fetch(`api.php?accion=confirmacion&id=${encodeURIComponent(id)}&t=${Date.now()}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (!data.ok) {
+                    mostrarMensaje('Aún no encontramos tu confirmación. Confirma tu asistencia desde tu invitación para obtener tu pase.');
+                    return;
+                }
+                if (data.confirmacion.asistira !== 'Si') {
+                    mostrarMensaje('Tu respuesta registrada es que no podrás asistir, por eso no se generó un pase. Si cambiaste de opinión, vuelve a confirmar desde tu invitación.');
+                    return;
+                }
+
+                const c = data.confirmacion;
+                const datos = document.querySelector('#datos-pase');
+                datos.innerHTML = '';
+                const familia = document.createElement('strong');
+                familia.textContent = c.familia;
+                datos.append(familia, document.createElement('br'),
+                    `${c.cantidad} ${c.cantidad == 1 ? 'persona' : 'personas'}` + (c.mesa ? ` · Mesa ${c.mesa}` : ''));
+                datos.style.display = 'block';
+            } catch (err) {
+                console.error(err);
+                mostrarMensaje('No se pudo verificar tu confirmación. Revisa tu conexión e intenta de nuevo.');
+                return;
+            }
+
+            document.querySelector("#buttons-container").style.display = "block";
+            document.querySelector("#pase-container").style.display = "block";
+            generarCodigoQR(id);
+
+            // La descarga se habilita cuando la imagen de fondo terminó de cargar
+            const img = document.querySelector('#pase');
+            const btnDescarga = document.querySelector('#download-button');
+            const habilitar = () => { btnDescarga.disabled = false; };
+            if (img.complete && img.naturalWidth) habilitar();
+            else img.addEventListener('load', habilitar);
+            img.addEventListener('error', () => { btnDescarga.textContent = 'Falta la imagen suqr.jpg'; });
+
+            btnDescarga.addEventListener('click', downloadImage);
+            document.querySelector('#confirmation-button').addEventListener('click', redirectToConfirmation);
+        }
+
+        document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>

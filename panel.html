@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control | Plan y Fiesta</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="admin.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        .loader {
+            border-top-color: #10b981;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col items-center p-6">
+
+    <div class="max-w-5xl w-full">
+
+        <div class="text-center mb-10 mt-6">
+            <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight mb-2">Panel de Control</h1>
+            <p class="text-slate-500">Gestión centralizada del evento</p>
+            <p id="estadoFormulario" class="mt-3 text-xs font-semibold inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 text-slate-400">
+                <i class="ph ph-spinner animate-spin"></i> Revisando formulario...
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-gear"></i> Administración
+                </h2>
+                <div class="space-y-3">
+                    <a href="registro.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-green-50 text-slate-700 hover:text-green-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-table text-xl text-green-600"></i>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-sm">Registro de Invitados</span>
+                            <span class="text-[10px] text-slate-400">Capturar familias, mesas y enviar links</span>
+                        </div>
+                    </a>
+
+                    <a href="control_formulario.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-toggle-left text-xl text-blue-600"></i>
+                        </div>
+                        <span class="font-semibold text-sm">Control Formulario</span>
+                    </a>
+
+                    <a href="firmas.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-purple-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-signature text-xl text-purple-600"></i>
+                        </div>
+                        <span class="font-semibold text-sm">Libro de Firmas</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-indigo-50 rounded-full blur-2xl opacity-50"></div>
+
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-monitor-play"></i> Vistas en Vivo
+                </h2>
+                <div class="space-y-3">
+                    <a href="confirmados.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-chart-pie-slice text-xl text-rose-600"></i>
+                        </div>
+                        <span class="font-semibold text-sm">Reporte de Asistencia</span>
+                    </a>
+
+                    <a href="mesas.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-sky-50 text-slate-700 hover:text-sky-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-armchair text-xl text-sky-600"></i>
+                        </div>
+                        <span class="font-semibold text-sm">Mesas (Lista General)</span>
+                    </a>
+
+                    <a href="mesaconfirmados.html"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-check-square-offset text-xl text-emerald-600"></i>
+                        </div>
+                        <span class="font-semibold text-sm">Mesas (Confirmados)</span>
+                    </a>
+
+                    <a href="escaner.html?recepcion=1"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-scan text-xl text-amber-600"></i>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-sm">Recepción (Escáner)</span>
+                            <span class="text-[10px] text-slate-400">Ábrelo en los celulares de la entrada</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-printer"></i> Impresión y Respaldo
+                </h2>
+                <div class="space-y-3">
+                    <button id="listaPdfBtn"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-orange-50 text-slate-700 hover:text-orange-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-file-pdf text-xl text-orange-600"></i>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-sm">Lista Completa</span>
+                            <span class="text-[10px] text-slate-400">Todas las familias registradas</span>
+                        </div>
+                    </button>
+
+                    <button id="confirmadosPdfBtn"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-file-pdf text-xl text-teal-600"></i>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-sm">Lista Confirmados</span>
+                            <span class="text-[10px] text-slate-400">Solo asistencia "SÍ"</span>
+                        </div>
+                    </button>
+
+                    <button id="respaldoBtn"
+                        class="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-100 transition-all group text-left">
+                        <div class="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                            <i class="ph-fill ph-database text-xl text-slate-600"></i>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-sm">Descargar Respaldo</span>
+                            <span class="text-[10px] text-slate-400">Todas las bases en un archivo</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-10 text-center text-slate-300 text-sm">
+            &copy; <span id="anio">2026</span> Plan y Fiesta System
+        </div>
+
+    </div>
+
+    <div id="loading-screen" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col justify-center items-center">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4"></div>
+        <h2 class="text-slate-800 text-xl font-semibold">Generando documento...</h2>
+        <p class="text-slate-500 text-sm">Por favor espera un momento.</p>
+    </div>
+
+<script>
+    document.getElementById('anio').textContent = new Date().getFullYear();
+    document.getElementById('listaPdfBtn').addEventListener('click', generarListaPDF);
+    document.getElementById('confirmadosPdfBtn').addEventListener('click', generarConfirmadosPDF);
+    document.getElementById('respaldoBtn').addEventListener('click', descargarRespaldo);
+
+    // Muestra si el formulario de confirmación está abierto o cerrado
+    fetch('api.php?accion=formulario&t=' + Date.now())
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('estadoFormulario');
+            el.className = 'mt-3 text-xs font-semibold inline-flex items-center gap-1 px-3 py-1 rounded-full ' +
+                (data.formVisible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            el.innerHTML = data.formVisible
+                ? '<i class="ph-fill ph-check-circle"></i> Formulario de confirmación ABIERTO'
+                : '<i class="ph-fill ph-x-circle"></i> Formulario de confirmación CERRADO';
+        })
+        .catch(() => {
+            document.getElementById('estadoFormulario').textContent = 'No se pudo conectar con api.php';
+        });
+
+    function mostrarLoading() {
+        document.getElementById('loading-screen').classList.remove('hidden');
+        document.getElementById('loading-screen').classList.add('flex');
+    }
+
+    function ocultarLoading() {
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('loading-screen').classList.remove('flex');
+    }
+
+    // --- GENERAR PDF LISTA COMPLETA (invitados.json) ---
+    async function generarListaPDF() {
+        try {
+            mostrarLoading();
+            const { invitados } = await apiAdmin('invitados');
+
+            // Solo las filas con datos (no los códigos vacíos)
+            const data = invitados.filter(tieneDatos).map(item => ({ ...item, familia: nombreVisible(item) }));
+            if (!data.length) throw new Error('Aún no hay invitados registrados.');
+
+            const columns = [
+                { header: 'ID', dataKey: 'id' },
+                { header: 'Familia', dataKey: 'familia' },
+                { header: 'Total', dataKey: 'total' },
+                { header: 'Adul.', dataKey: 'adultos' },
+                { header: 'Adol.', dataKey: 'adolescentes' },
+                { header: 'Niñ.', dataKey: 'ninos' },
+                { header: 'Detalle Nombres', dataKey: 'nombres' },
+                { header: 'Mesa', dataKey: 'mesa' }
+            ];
+            const rows = data.map(item => ({ ...item, total: sumaPersonas(item) }));
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            doc.setFontSize(18);
+            doc.text('Lista General de Invitados', 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Generado: ${new Date().toLocaleDateString()}  ·  Familias: ${data.length}  ·  Personas: ${rows.reduce((a, r) => a + r.total, 0)}`, 14, 26);
+
+            doc.autoTable({
+                startY: 35,
+                head: [columns.map(col => col.header)],
+                body: rows.map(row => columns.map(col => row[col.dataKey] ?? '')),
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
+                columnStyles: { 1: { halign: 'left' }, 6: { halign: 'left', cellWidth: 80 } }
+            });
+
+            doc.save('Lista_General_Invitados.pdf');
+        } catch (error) {
+            console.error(error);
+            alert('Error al generar PDF: ' + error.message);
+        } finally {
+            ocultarLoading();
+        }
+    }
+
+    // --- GENERAR PDF CONFIRMADOS (confirmados.json) ---
+    async function generarConfirmadosPDF() {
+        try {
+            mostrarLoading();
+            const { confirmados } = await apiAdmin('confirmados');
+
+            const dataFiltrada = confirmados.filter(item =>
+                ['si', 'sí'].includes(String(item.asistira || '').toLowerCase())
+            );
+            if (!dataFiltrada.length) throw new Error('Aún no hay confirmaciones con "Sí".');
+
+            const columns = [
+                { header: 'ID', dataKey: 'id' },
+                { header: 'Familia', dataKey: 'familia' },
+                { header: 'Total', dataKey: 'cantidad' },
+                { header: 'Adul.', dataKey: 'adultos' },
+                { header: 'Adol.', dataKey: 'adolescentes' },
+                { header: 'Niñ.', dataKey: 'ninos' },
+                { header: 'Nombres Confirmados', dataKey: 'nombres' },
+                { header: 'Mesa', dataKey: 'mesa' }
+            ];
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            doc.setFontSize(18);
+            doc.setTextColor(40, 167, 69);
+            doc.text('Reporte de Asistencia Confirmada', 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Total Familias: ${dataFiltrada.length}  ·  Personas: ${dataFiltrada.reduce((a, r) => a + num(r.cantidad), 0)}`, 14, 26);
+
+            doc.autoTable({
+                startY: 35,
+                head: [columns.map(col => col.header)],
+                body: dataFiltrada.map(row => columns.map(col => row[col.dataKey] ?? '')),
+                theme: 'striped',
+                headStyles: { fillColor: [40, 167, 69] },
+                styles: { fontSize: 10, cellPadding: 3, halign: 'center' },
+                columnStyles: { 1: { halign: 'left' }, 6: { halign: 'left', cellWidth: 80 } }
+            });
+
+            doc.save('Lista_Confirmados.pdf');
+        } catch (error) {
+            console.error(error);
+            alert('Error al generar PDF: ' + error.message);
+        } finally {
+            ocultarLoading();
+        }
+    }
+
+    // --- RESPALDO: descarga invitados + confirmados + firmas en un solo JSON ---
+    async function descargarRespaldo() {
+        try {
+            const datos = await apiAdmin('respaldo');
+            delete datos.ok;
+            const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `respaldo-invitaciones-${new Date().toLocaleDateString('sv')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        } catch (error) {
+            alert('No se pudo descargar el respaldo: ' + error.message);
+        }
+    }
+</script>
+
+</body>
+</html>

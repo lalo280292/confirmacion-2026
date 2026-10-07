@@ -1,0 +1,134 @@
+<!--
+    FRAGMENTO para pegar dentro de la invitación (no es una página completa).
+    Muestra los datos del invitado tomados de invitados.json (por medio de api.php).
+-->
+<style>
+  #contenedor-datos {
+    display: none; /* Se activa con JS */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    color: #806A91;
+    font-family: 'Libre Bodoni', serif;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin: 10px auto;
+    max-width: 75%;
+    text-align: center;
+  }
+
+  .fila-dato {
+    margin: 7px 0;
+    line-height: 1.2;
+    font-size: 20px;
+  }
+
+  .valor-dato { font-size: 23px; font-weight: bold; white-space: pre-line; }
+</style>
+
+<div id="contenedor-datos">
+
+  <div id="box-Familia" class="fila-dato">
+    <div>Invitación para:</div>
+    <div id="val-Familia" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Invitados" class="fila-dato">
+    <div>Cantidad de invitados:</div>
+    <div id="val-Invitados" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Adultos" class="fila-dato">
+    <div>Adultos:</div>
+    <div id="val-Adultos" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Adolescentes" class="fila-dato">
+    <div>Adolescentes:</div>
+    <div id="val-Adolescentes" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Ninos" class="fila-dato">
+    <div>Niños:</div>
+    <div id="val-Ninos" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Nombres" class="fila-dato">
+    <div>Nombre de los invitados:</div>
+    <div id="val-Nombres" class="valor-dato"></div>
+  </div>
+
+  <div id="box-Mesa" class="fila-dato">
+    <div>Número de mesa:</div>
+    <div id="val-Mesa" class="valor-dato"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const API_URL = 'api.php';
+
+  function iniciar() {
+    // 1. Obtener ID de la URL
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (!id) return;
+
+    // 2. Relaciona cada caja con su campo en invitados.json y el tipo de validación
+    const campos = [
+      { caja: "Familia",      key: "familia",      type: "text" },
+      { caja: "Invitados",    key: "total",        type: "num"  },
+      { caja: "Adultos",      key: "adultos",      type: "num"  },
+      { caja: "Adolescentes", key: "adolescentes", type: "num"  },
+      { caja: "Ninos",        key: "ninos",        type: "num"  },
+      { caja: "Nombres",      key: "nombres",      type: "text" },
+      { caja: "Mesa",         key: "mesa",         type: "text" }
+    ];
+
+    // 3. Obtener datos (la misma petición la reutiliza confirmacion.html)
+    window.__datosInvitado = window.__datosInvitado ||
+      fetch(`${API_URL}?accion=invitado&id=${encodeURIComponent(id)}`, { cache: "no-store" }).then(r => r.json());
+
+    window.__datosInvitado
+      .then(data => {
+        const registro = data && data.ok ? data.invitado : null;
+        if (!registro) return;
+
+        // Si no capturaron el total, se calcula con el desglose
+        if (!(Number(registro.total) > 0)) {
+          registro.total = (Number(registro.adultos) || 0) + (Number(registro.adolescentes) || 0) + (Number(registro.ninos) || 0);
+        }
+
+        // 4. Rellena o esconde automáticamente (no hace falta que tenga Familia o Nombre)
+        let mostrados = 0;
+        campos.forEach(campo => {
+          const valor = registro[campo.key];
+          const contenedor = document.getElementById(`box-${campo.caja}`);
+          const elementoTexto = document.getElementById(`val-${campo.caja}`);
+
+          let esValido = false;
+          if (campo.type === "num") esValido = Number(valor) > 0;
+          else                      esValido = valor != null && String(valor).trim() !== "";
+
+          if (esValido) {
+            elementoTexto.textContent = valor;
+            contenedor.style.display = "";
+            mostrados++;
+          } else {
+            contenedor.style.display = "none";
+          }
+        });
+
+        // Mostrar la tarjeta final (si el código no tiene ningún dato capturado, no se muestra vacía)
+        if (mostrados) document.getElementById("contenedor-datos").style.display = "flex";
+      })
+      .catch(err => console.error("Error:", err));
+  }
+
+  // Funciona aunque el fragmento se inserte después de que cargó la página
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
+  else iniciar();
+})();
+</script>

@@ -21,5 +21,8 @@ define('MAX_PERSONAS_SIN_ASIGNAR', 10);
 // Cantidad de códigos que se generan si invitados.json no existe.
 define('CODIGOS_INICIALES', 400);
 
+// Cuántos cambios se guardan como máximo en el historial de cada confirmación.
+define('MAX_HISTORIAL', 50);
+
 // Zona horaria para la fecha de las confirmaciones.
 date_default_timezone_set('America/Mexico_City');

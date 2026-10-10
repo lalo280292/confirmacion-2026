@@ -9,280 +9,459 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="admin.js"></script>
     <style>
-        body { font-family: sans-serif; }
-        .tab-btn { position: relative; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
 
-        .active-si { color: #1d4ed8; background-color: #eff6ff; border-bottom: 3px solid #3b82f6; }
-        .active-pending { color: #c2410c; background-color: #fff7ed; border-bottom: 3px solid #f97316; }
-        .active-no { color: #b91c1c; background-color: #fef2f2; border-bottom: 3px solid #ef4444; }
+        /* ================= PESTAÑAS ================= */
+        .pestana {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 8px; border-radius: 12px; font-size: 14px; font-weight: 700; color: #64748b;
+            transition: background .15s, color .15s;
+        }
+        .pestana:hover { background: #f8fafc; color: #334155; }
+        .pestana .cuenta { font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; }
+        .pestana.activa[data-tab="si"] { background: #f0fdf4; color: #15803d; box-shadow: inset 0 0 0 1px #bbf7d0; }
+        .pestana.activa[data-tab="si"] .cuenta { background: #16a34a; color: #fff; }
+        .pestana.activa[data-tab="pending"] { background: #fff7ed; color: #c2410c; box-shadow: inset 0 0 0 1px #fed7aa; }
+        .pestana.activa[data-tab="pending"] .cuenta { background: #ea580c; color: #fff; }
+        .pestana.activa[data-tab="no"] { background: #fef2f2; color: #b91c1c; box-shadow: inset 0 0 0 1px #fecaca; }
+        .pestana.activa[data-tab="no"] .cuenta { background: #dc2626; color: #fff; }
+        @media (max-width: 640px) {
+            .pestana { flex-direction: column; gap: 3px; padding: 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+        }
 
-        .tab-inactive { color: #6b7280; border-bottom: 3px solid transparent; }
-        .tab-inactive:hover { background-color: #f9fafb; color: #374151; }
+        /* ================= TABLA (computadora) ================= */
+        .hoja { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; }
+        .hoja thead th {
+            background: #f8fafc; color: #64748b;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+            padding: 10px 12px; text-align: left; white-space: nowrap;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .hoja thead th.centro { text-align: center; }
+        .hoja td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; background: #fff; }
+        .hoja tbody tr:nth-child(even) td { background: #fcfdfe; }
+        .hoja tbody tr:hover td { background: #f5f7ff; }
+        .hoja .centro { text-align: center; }
 
-        /* Campo de mesa editable */
+        .codigo { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #4338ca; letter-spacing: .06em; font-size: 12px; }
+        .familia { font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+        .nombres { color: #64748b; font-size: 13px; white-space: pre-line; overflow-wrap: anywhere; max-width: 320px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .numero { font-variant-numeric: tabular-nums; font-weight: 600; }
+        .numero.cero { color: #cbd5e1; font-weight: 500; }
+        .pastilla-total { display: inline-block; min-width: 34px; padding: 3px 8px; border-radius: 8px; font-weight: 800; }
+        .insignia { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+
+        .c-acciones { width: 1%; white-space: nowrap; }
+        .acciones { display: flex; gap: 6px; justify-content: flex-end; }
+        .btn-accion {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            font-size: 12px; font-weight: 700; border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+            border: 1px solid; transition: background .15s, transform .1s;
+        }
+        .btn-accion:active { transform: scale(.97); }
+        .btn-accion i { font-size: 15px; }
+        .btn-editar { color: #334155; background: #f8fafc; border-color: #e2e8f0; }
+        .btn-editar:hover { background: #f1f5f9; }
+        .btn-copiar { color: #4f46e5; background: #eef2ff; border-color: #c7d2fe; }
+        .btn-copiar:hover { background: #e0e7ff; }
+        .btn-qr { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+        .btn-qr:hover { background: #dcfce7; }
+        .btn-registrar { color: #fff; background: #ea580c; border-color: #ea580c; }
+        .btn-registrar:hover { background: #c2410c; }
+
+        /* Mesa editable */
         .mesa-wrap { position: relative; width: 84px; margin: 0 auto; }
         .mesa-input {
-            width: 100%; text-align: center; font-weight: 700; font-size: 15px;
-            border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 22px 6px 6px; background: #f9fafb;
+            width: 100%; text-align: center; font-weight: 700; font-size: 15px; color: #0f172a;
+            border: 1px solid #e2e8f0; border-radius: 10px; padding: 7px 22px 7px 8px; background: #f8fafc;
             outline: none; transition: all .15s;
         }
-        .mesa-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px #bfdbfe; }
+        .mesa-input::placeholder { color: #cbd5e1; }
+        .mesa-input:focus { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 3px #c7d2fe; }
         .mesa-input.guardando { border-color: #a5b4fc; }
         .mesa-input.ok { border-color: #22c55e; background: #f0fdf4; }
         .mesa-input.error { border-color: #ef4444; background: #fef2f2; }
-        .mesa-estado { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; }
+        .mesa-estado { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; }
+
+        /* Fila que cambió con la actualización en vivo */
+        @keyframes resaltar { from { background-color: #fef9c3; } to { background-color: transparent; } }
+        .hoja tr.cambio td { animation: resaltar 3s ease-out; }
+
+        /* ================= TARJETAS (celular / tableta vertical) ================= */
+        @media (max-width: 860px) {
+            .hoja, .hoja tbody { display: block; }
+            .hoja thead { display: none; }
+            .hoja tbody tr {
+                display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px;
+                background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+                padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            }
+            .hoja tbody tr td, .hoja tbody tr:nth-child(even) td, .hoja tbody tr:hover td { background: transparent; border: 0; padding: 0; min-width: 0; }
+            .hoja tr.cambio { animation: resaltar 3s ease-out; }
+            .hoja tr.cambio td { animation: none; }
+            .hoja td[data-label]::before {
+                content: attr(data-label); display: block; margin: 0 0 4px;
+                font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em;
+            }
+            .hoja .c-familia, .hoja .c-nombres, .hoja .c-acciones { grid-column: 1 / -1; }
+            .hoja .c-num { text-align: center; background: #f8fafc !important; border-radius: 10px; padding: 8px 4px !important; }
+            .hoja .c-num::before { margin-bottom: 2px !important; }
+            .hoja .c-fecha { grid-column: 1 / 4; }
+            .hoja .c-mesa { grid-column: 4 / 5; text-align: center; }
+            .hoja .c-fecha.ancho { grid-column: 1 / -1; }
+            .hoja .c-acciones { width: auto; }
+            .acciones { justify-content: stretch; }
+            .acciones .btn-accion { flex: 1; padding: 11px 8px; font-size: 13px; }
+            .familia { font-size: 16px; }
+            .nombres { max-width: none; font-size: 14px; -webkit-line-clamp: 6; }
+            .mesa-wrap { width: 100%; }
+            .c-fecha .whitespace-nowrap { white-space: normal; }
+            .mesa-input { font-size: 16px; }
+            .hoja tr.sin-filas { display: block; text-align: center; }
+        }
+
+        /* ================= VENTANAS (editar / historial) ================= */
+        .campo-etq { display: block; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+        .campo {
+            width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #0f172a;
+            padding: 10px 11px; font-size: 16px; outline: none; transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        .campo:focus { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 3px #c7d2fe; }
+        .campo.numero { text-align: center; }
+        .campo.aviso { border-color: #fdba74; background: #fff7ed; }
+        textarea.campo { resize: vertical; min-height: 76px; line-height: 1.4; }
+
+        .opcion-asistencia input { position: absolute; opacity: 0; pointer-events: none; }
+        .opcion-asistencia span {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 11px 8px; border: 1px solid #e2e8f0; border-radius: 12px;
+            font-weight: 700; font-size: 14px; color: #64748b; cursor: pointer; transition: all .15s;
+        }
+        .opcion-asistencia input:checked + span.si { background: #f0fdf4; border-color: #22c55e; color: #15803d; box-shadow: 0 0 0 1px #22c55e; }
+        .opcion-asistencia input:checked + span.no { background: #fef2f2; border-color: #ef4444; color: #b91c1c; box-shadow: 0 0 0 1px #ef4444; }
+        .opcion-asistencia input:focus-visible + span { outline: 2px solid #6366f1; outline-offset: 2px; }
+
+        .cambio-dif { background: #fef9c3; border-radius: 4px; padding: 0 3px; }
+
+        /* ================= INDICADOR EN VIVO Y AVISOS ================= */
+        .punto-vivo { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; position: relative; flex: none; }
+        .punto-vivo::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #22c55e; animation: pulso 2s ease-out infinite; }
+        .punto-vivo.pausa { background: #94a3b8; }
+        .punto-vivo.pausa::after { display: none; }
+        .punto-vivo.error { background: #ef4444; }
+        .punto-vivo.error::after { background: #ef4444; }
+        @keyframes pulso { from { transform: scale(1); opacity: .7; } to { transform: scale(2.6); opacity: 0; } }
+
+        #toast {
+            position: fixed; z-index: 70; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+            opacity: 0; pointer-events: none; transition: all .25s;
+            background: #0f172a; color: #fff; border-radius: 12px; padding: 12px 16px;
+            display: flex; align-items: center; gap: 10px; font-size: 14px; max-width: calc(100vw - 24px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5);
+        }
+        #toast.visible { opacity: 1; transform: translate(-50%, 0); }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen p-4 md:p-6">
+<body class="bg-slate-100 text-slate-800 min-h-screen">
 
-    <div class="max-w-7xl mx-auto space-y-6">
+    <div class="max-w-[1400px] mx-auto p-4 md:p-6 space-y-6 pb-20">
 
-        <header class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-sm gap-4">
-            <div>
-                <a href="panel.html" class="text-xs font-semibold text-gray-400 hover:text-blue-600 flex items-center gap-1 mb-1"><i class="ph ph-arrow-left"></i> Panel de control</a>
-                <h1 class="text-2xl font-bold text-gray-900">Reporte de Asistencia</h1>
+        <!-- ENCABEZADO -->
+        <header class="flex flex-col lg:flex-row justify-between lg:items-center bg-white p-5 md:p-6 rounded-2xl shadow-sm gap-5">
+            <div class="flex flex-col gap-2 min-w-0">
+                <a href="panel.html" class="text-xs font-semibold text-slate-400 hover:text-indigo-600 flex items-center gap-1 w-fit">
+                    <i class="ph ph-arrow-left"></i> Panel de control
+                </a>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Reporte de Asistencia</h1>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button id="btnRefresh" onclick="fetchData()" class="w-fit flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition font-bold text-xs">
+                        <i id="iconRefresh" class="ph ph-arrows-clockwise text-lg"></i>
+                        <span id="textRefresh">Actualizar</span>
+                    </button>
+                    <span class="flex items-center gap-2 text-xs font-semibold text-slate-500" title="La página revisa si hay respuestas nuevas cada 15 segundos mientras está abierta">
+                        <span id="puntoVivo" class="punto-vivo pausa"></span>
+                        <span id="textoVivo">Conectando…</span>
+                    </span>
+                </div>
             </div>
 
-            <button id="btnRefresh" onclick="fetchData()" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-5 py-2.5 rounded-lg text-sm font-bold transition flex items-center gap-2 border border-blue-200">
-                <i id="iconRefresh" class="ph ph-arrows-clockwise text-xl"></i>
-                <span id="textRefresh">Actualizar Datos</span>
-            </button>
+            <div class="grid grid-cols-[1fr_auto] items-center gap-3">
+                <div class="flex items-center gap-4 bg-green-50 px-4 sm:px-5 py-3 rounded-xl border border-green-100">
+                    <div class="text-right flex-1">
+                        <p class="text-xs text-green-600 font-bold uppercase">Personas confirmadas</p>
+                        <p class="text-2xl font-bold text-green-700">
+                            <span id="resumenSi">0</span> <span class="text-sm text-green-500">/ <span id="resumenInvitados">0</span></span>
+                        </p>
+                    </div>
+                    <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                        <i class="ph ph-users-three text-2xl"></i>
+                    </div>
+                </div>
+                <div class="text-right px-2">
+                    <span class="block text-xs text-gray-400 uppercase tracking-wider">Respondieron</span>
+                    <span class="text-4xl font-bold text-gray-600"><span id="resumenPorcentaje">0</span><span class="text-xl">%</span></span>
+                </div>
+            </div>
         </header>
 
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden flex border-b border-gray-200">
-            <button onclick="switchTab('si')" id="tab-si" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 active-si">
-                <i class="ph ph-check-circle text-xl sm:text-lg"></i>
-                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">Sí Asistirán</span>
+        <!-- PESTAÑAS -->
+        <nav class="bg-white p-1.5 rounded-2xl shadow-sm flex gap-1.5">
+            <button class="pestana activa" data-tab="si" onclick="switchTab('si')">
+                <i class="ph ph-check-circle text-xl"></i><span>Sí asistirán</span><span class="cuenta" id="cuenta-si">0</span>
             </button>
-            <button onclick="switchTab('pending')" id="tab-pending" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive">
-                <i class="ph ph-clock-countdown text-xl sm:text-lg"></i>
-                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">Pendientes</span>
+            <button class="pestana" data-tab="pending" onclick="switchTab('pending')">
+                <i class="ph ph-clock-countdown text-xl"></i><span>Pendientes</span><span class="cuenta" id="cuenta-pending">0</span>
             </button>
-            <button onclick="switchTab('no')" id="tab-no" class="flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive">
-                <i class="ph ph-x-circle text-xl sm:text-lg"></i>
-                <span class="text-[10px] sm:text-sm font-bold uppercase tracking-wide">No Asistirán</span>
+            <button class="pestana" data-tab="no" onclick="switchTab('no')">
+                <i class="ph ph-x-circle text-xl"></i><span>No asistirán</span><span class="cuenta" id="cuenta-no">0</span>
             </button>
-        </div>
+        </nav>
 
-        <div class="bg-white p-4 rounded-xl shadow-sm sticky top-2 z-20 border border-gray-200">
-            <div class="relative">
-                <i class="ph ph-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-lg"></i>
-                <input type="text" id="searchInput"
-                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition"
-                    placeholder="Buscar familia..." disabled>
-            </div>
-        </div>
-
-        <div id="view-si" class="space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-green-50 p-5 rounded-xl border border-green-100 flex items-center justify-between">
-                        <div><p class="text-sm text-green-600 font-bold uppercase">Total Confirmados</p><p id="si-total" class="text-3xl font-bold text-green-800">0</p></div>
-                        <i class="ph ph-users-three text-3xl text-green-300"></i>
+        <!-- ESTADÍSTICAS DE LA PESTAÑA -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="space-y-3 lg:space-y-4">
+                <div id="stat-principal" class="p-5 rounded-xl border flex items-center justify-between">
+                    <div>
+                        <p id="stat-titulo" class="text-sm font-bold uppercase"></p>
+                        <p id="stat-total" class="text-3xl font-bold">0</p>
+                        <p id="stat-detalle" class="text-xs font-semibold opacity-75"></p>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="si-adu" class="text-xl font-bold text-blue-600">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="si-ado" class="text-xl font-bold text-yellow-600">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="si-nin" class="text-xl font-bold text-green-600">0</p>
-                        </div>
-                    </div>
+                    <i id="stat-icono" class="ph text-4xl opacity-40"></i>
                 </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
-                    <canvas id="chartSi"></canvas>
+                <div class="grid grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-4">
+                    <div class="bg-white p-3 sm:p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-blue-500">
+                        <div><p class="text-[11px] sm:text-xs lg:text-sm text-gray-500">Adultos</p><p id="stat-adu" class="text-2xl font-bold text-gray-800">0</p></div>
+                        <i class="ph ph-user text-3xl text-blue-200 hidden sm:block"></i>
+                    </div>
+                    <div class="bg-white p-3 sm:p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-yellow-500">
+                        <div><p class="text-[11px] sm:text-xs lg:text-sm text-gray-500">Adolescentes</p><p id="stat-ado" class="text-2xl font-bold text-gray-800">0</p></div>
+                        <i class="ph ph-user-circle text-3xl text-yellow-200 hidden sm:block"></i>
+                    </div>
+                    <div class="bg-white p-3 sm:p-4 lg:p-5 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-green-500">
+                        <div><p class="text-[11px] sm:text-xs lg:text-sm text-gray-500">Niños</p><p id="stat-nin" class="text-2xl font-bold text-gray-800">0</p></div>
+                        <i class="ph ph-baby text-3xl text-green-200 hidden sm:block"></i>
+                    </div>
                 </div>
             </div>
-
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center gap-2 flex-wrap">
-                    <h3 class="font-bold text-gray-700">Listado de Asistentes</h3>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-400 hidden sm:inline">La mesa se guarda sola al editarla</span>
-                        <span id="si-count-rows" class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-bold">0 filas</span>
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500 uppercase">
-                            <tr>
-                                <th class="px-6 py-3 text-left">Familia</th>
-                                <th class="px-6 py-3 text-center">Total</th>
-                                <th class="px-6 py-3 text-center text-blue-600">Adu</th>
-                                <th class="px-6 py-3 text-center text-yellow-600">Ado</th>
-                                <th class="px-6 py-3 text-center text-green-600">Niñ</th>
-                                <th class="px-6 py-3 text-left">Nombres</th>
-                                <th class="px-6 py-3 text-center">Mesa</th>
-                                <th class="px-6 py-3 text-center">QR</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-si" class="divide-y divide-gray-100"></tbody>
-                    </table>
+            <div class="bg-white p-6 rounded-xl shadow-sm lg:col-span-2 flex flex-col justify-center items-center">
+                <h3 id="grafica-titulo" class="text-gray-500 font-semibold mb-4 w-full text-left">Distribución</h3>
+                <div class="w-full h-56 md:h-64 relative">
+                    <canvas id="grafica"></canvas>
                 </div>
             </div>
         </div>
 
-        <div id="view-pending" class="space-y-6 hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-orange-50 p-5 rounded-xl border border-orange-100 flex items-center justify-between">
-                        <div><p class="text-sm text-orange-600 font-bold uppercase">Faltan por Confirmar</p><p id="pending-total" class="text-3xl font-bold text-orange-800">0</p></div>
-                        <i class="ph ph-clock-countdown text-3xl text-orange-300"></i>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="pending-adu" class="text-xl font-bold text-gray-600">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="pending-ado" class="text-xl font-bold text-gray-600">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="pending-nin" class="text-xl font-bold text-gray-600">0</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
-                    <canvas id="chartPending"></canvas>
-                </div>
+        <!-- BÚSQUEDA -->
+        <div class="bg-white p-3 md:p-4 rounded-2xl shadow-sm sticky top-2 z-20 border border-slate-200 flex items-center gap-3">
+            <div class="relative flex-1">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                <input type="search" id="searchInput" autocomplete="off"
+                    class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition text-base"
+                    placeholder="Buscar por familia, nombres, código o mesa..." disabled>
             </div>
-
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-100 bg-orange-50 flex justify-between items-center">
-                    <h3 class="font-bold text-orange-800">Familias sin Respuesta</h3>
-                    <span id="pending-count-rows" class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold">0 filas</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500 uppercase">
-                            <tr>
-                                <th class="px-6 py-3 text-left">Familia</th>
-                                <th class="px-6 py-3 text-left">Nombres</th>
-                                <th class="px-6 py-3 text-center">Adu</th>
-                                <th class="px-6 py-3 text-center">Ado</th>
-                                <th class="px-6 py-3 text-center">Niñ</th>
-                                <th class="px-6 py-3 text-center">Enviada</th>
-                                <th class="px-6 py-3 text-center">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-pending" class="divide-y divide-gray-100"></tbody>
-                    </table>
-                </div>
-            </div>
+            <span id="contadorVisible" class="text-xs text-slate-400 whitespace-nowrap hidden md:inline"></span>
         </div>
 
-        <div id="view-no" class="space-y-6 hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-red-50 p-5 rounded-xl border border-red-100 flex items-center justify-between">
-                        <div><p class="text-sm text-red-600 font-bold uppercase">Lugares Liberados</p><p id="no-total" class="text-3xl font-bold text-red-800">0</p></div>
-                        <i class="ph ph-chair text-3xl text-red-300"></i>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adultos</p><p id="no-adu" class="text-xl font-bold text-gray-500">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Adoles.</p><p id="no-ado" class="text-xl font-bold text-gray-500">0</p>
-                        </div>
-                        <div class="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase">Niños</p><p id="no-nin" class="text-xl font-bold text-gray-500">0</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2 flex justify-center items-center relative h-64 border border-gray-100">
-                    <canvas id="chartNo"></canvas>
-                </div>
+        <!-- LISTADO -->
+        <div class="bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-200 overflow-hidden max-[860px]:bg-transparent">
+            <div id="listado-encabezado" class="px-5 py-4 border-b border-slate-100 flex justify-between items-center gap-2 flex-wrap max-[860px]:hidden">
+                <h3 id="listado-titulo" class="font-bold text-slate-700"></h3>
+                <span id="listado-ayuda" class="text-xs text-slate-400"></span>
             </div>
-
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-100 bg-red-50 flex justify-between items-center">
-                    <h3 class="font-bold text-red-700">Cancelaciones</h3>
-                    <span id="no-count-rows" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">0 filas</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500 uppercase">
-                            <tr>
-                                <th class="px-6 py-3 text-left">Familia</th>
-                                <th class="px-6 py-3 text-left">Nombres</th>
-                                <th class="px-6 py-3 text-center">Adu</th>
-                                <th class="px-6 py-3 text-center">Ado</th>
-                                <th class="px-6 py-3 text-center">Niñ</th>
-                                <th class="px-6 py-3 text-center">Link</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-no" class="divide-y divide-gray-100"></tbody>
-                    </table>
-                </div>
+            <div class="overflow-x-auto max-[860px]:overflow-visible">
+                <table class="hoja">
+                    <thead id="tabla-encabezado"></thead>
+                    <tbody id="tabla-cuerpo">
+                        <tr class="sin-filas"><td colspan="9" class="text-center py-10 text-slate-400 animate-pulse">Cargando datos...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-
     </div>
 
+    <!-- VENTANA: EDITAR / REGISTRAR RESPUESTA -->
+    <div id="modalEditar" class="hidden fixed inset-0 z-50 bg-slate-900/40 flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="editarTitulo">
+        <form id="formEditar" class="bg-white w-full sm:max-w-lg max-h-[92vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col" novalidate>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p id="editarModo" class="text-xs font-bold uppercase tracking-wide text-slate-400"></p>
+                    <h3 id="editarTitulo" class="text-lg font-bold text-slate-900 break-words"></h3>
+                    <p class="text-xs text-slate-500">Código <span id="editarCodigo" class="codigo"></span></p>
+                </div>
+                <button type="button" onclick="cerrarEditar()" class="text-slate-400 hover:text-slate-700 p-1" aria-label="Cerrar"><i class="ph-bold ph-x text-xl"></i></button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="opcion-asistencia relative"><input type="radio" name="asistira" value="Si"><span class="si"><i class="ph-bold ph-check"></i> Sí asistirá</span></label>
+                    <label class="opcion-asistencia relative"><input type="radio" name="asistira" value="No"><span class="no"><i class="ph-bold ph-x"></i> No asistirá</span></label>
+                </div>
+
+                <div>
+                    <label class="campo-etq" for="editarFamilia">Familia o nombre</label>
+                    <input class="campo" id="editarFamilia" name="familia" maxlength="150" autocomplete="off">
+                </div>
+
+                <div id="editarDetalles" class="space-y-4">
+                    <div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div><label class="campo-etq" for="editarTotal">Total</label><input class="campo numero" id="editarTotal" name="cantidad" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="0"></div>
+                            <div><label class="campo-etq text-blue-600" for="editarAdultos">Adultos</label><input class="campo numero" id="editarAdultos" name="adultos" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="0"></div>
+                            <div><label class="campo-etq text-yellow-600" for="editarAdolescentes">Adoles.</label><input class="campo numero" id="editarAdolescentes" name="adolescentes" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="0"></div>
+                            <div><label class="campo-etq text-green-600" for="editarNinos">Niños</label><input class="campo numero" id="editarNinos" name="ninos" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="0"></div>
+                        </div>
+                        <p id="editarAsignados" class="text-xs text-slate-500 mt-2"></p>
+                    </div>
+                    <div>
+                        <label class="campo-etq" for="editarNombres">Nombres de los asistentes</label>
+                        <textarea class="campo" id="editarNombres" name="nombres" maxlength="1000" rows="3"></textarea>
+                    </div>
+                    <div class="w-32">
+                        <label class="campo-etq" for="editarMesa"># Mesa</label>
+                        <input class="campo numero" id="editarMesa" name="mesa" maxlength="30" autocomplete="off" placeholder="—">
+                    </div>
+                </div>
+
+                <p id="editarError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></p>
+                <p class="text-xs text-slate-400 flex items-start gap-1.5"><i class="ph ph-info text-sm mt-px"></i> El cambio queda en el historial como «editado en el panel». Si el invitado vuelve a enviar el formulario, su respuesta reemplaza a esta.</p>
+            </div>
+
+            <div class="px-5 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+                <button type="button" id="btnQuitar" onclick="quitarRespuesta()" class="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg px-2 py-2 flex items-center justify-center gap-1 sm:mr-auto">
+                    <i class="ph ph-arrow-counter-clockwise text-base"></i> Regresar a pendientes
+                </button>
+                <div class="grid grid-cols-2 sm:flex gap-2">
+                    <button type="button" onclick="cerrarEditar()" class="px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition">Cancelar</button>
+                    <button type="submit" id="btnGuardarEdicion" class="px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-floppy-disk"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- VENTANA: HISTORIAL DE CAMBIOS -->
+    <div id="modalHistorial" class="hidden fixed inset-0 z-50 bg-slate-900/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="historialTitulo">
+        <div class="bg-white w-full sm:max-w-lg max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Historial de cambios</p>
+                    <h3 id="historialTitulo" class="text-lg font-bold text-slate-900 break-words"></h3>
+                    <p id="historialSub" class="text-xs text-slate-500"></p>
+                </div>
+                <button onclick="cerrarHistorial()" class="text-slate-400 hover:text-slate-700 p-1" aria-label="Cerrar"><i class="ph-bold ph-x text-xl"></i></button>
+            </div>
+            <ol id="historialLista" class="p-5 overflow-y-auto space-y-4"></ol>
+        </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"><i id="toastIcono" class="ph-fill ph-check-circle text-green-400 text-lg"></i><span id="toastTexto"></span></div>
+
     <script>
-        let chartSiInstance = null;
-        let chartPendingInstance = null;
-        let chartNoInstance = null;
+        let chartInstance = null;
 
         let globalListYes = [];
         let globalListPending = [];
         let globalListNo = [];
+        let mapaLista = {};          // id -> fila de invitados.json
+        let huellas = null;          // id -> resumen de la fila (para resaltar lo que cambió en vivo)
+        let cambiadas = new Set();
+        const propios = new Set();   // ids que acabas de cambiar tú (no se resaltan como "nuevos")
 
         let currentTab = 'si';
 
+        const TABS = {
+            si: {
+                titulo: 'Total confirmados', icono: 'ph-users-three', clases: 'bg-green-50 border-green-100 text-green-800',
+                listado: 'Listado de asistentes', ayuda: 'La mesa se guarda sola al editarla', grafica: 'Distribución de confirmados',
+                colores: ['#2563eb', '#ca8a04', '#16a34a'],
+            },
+            pending: {
+                titulo: 'Faltan por confirmar', icono: 'ph-clock-countdown', clases: 'bg-orange-50 border-orange-100 text-orange-800',
+                listado: 'Familias sin respuesta', ayuda: '«Registrar» si te respondieron por teléfono o mensaje', grafica: 'Lugares sin respuesta',
+                colores: ['#ea580c', '#f97316', '#fdba74'],
+            },
+            no: {
+                titulo: 'Lugares liberados', icono: 'ph-chair', clases: 'bg-red-50 border-red-100 text-red-800',
+                listado: 'Cancelaciones', ayuda: 'Lugares que tenían asignados en la invitación', grafica: 'Lugares liberados',
+                colores: ['#9ca3af', '#d1d5db', '#e5e7eb'],
+            },
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            fetchData();
+            fetchData().then(iniciarEnVivo);
             document.getElementById('searchInput').addEventListener('input', (e) => filterData(e.target.value));
 
-            // Delegación de eventos: copiar links y editar mesa
+            const cuerpo = document.getElementById('tabla-cuerpo');
             document.addEventListener('click', e => {
                 const btn = e.target.closest('[data-copiar]');
                 if (btn) copiarConAviso(btn, btn.dataset.copiar);
+                const hist = e.target.closest('[data-historial]');
+                if (hist) abrirHistorial(hist.dataset.historial);
+                const editar = e.target.closest('[data-editar]');
+                if (editar) abrirEditar(editar.dataset.editar);
             });
-            document.getElementById('table-si').addEventListener('change', e => {
+            cuerpo.addEventListener('change', e => {
                 if (e.target.classList.contains('mesa-input')) guardarMesa(e.target);
             });
-            document.getElementById('table-si').addEventListener('keydown', e => {
+            cuerpo.addEventListener('keydown', e => {
                 if (e.target.classList.contains('mesa-input') && e.key === 'Enter') e.target.blur();
             });
+
+            ['modalHistorial', 'modalEditar'].forEach(id => document.getElementById(id).addEventListener('click', e => {
+                if (e.target.id === id) id === 'modalEditar' ? cerrarEditar() : cerrarHistorial();
+            }));
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') { cerrarHistorial(); cerrarEditar(); } });
+
+            const form = document.getElementById('formEditar');
+            form.addEventListener('submit', guardarEdicion);
+            form.addEventListener('change', e => { if (e.target.name === 'asistira') pintarDetallesEdicion(); });
+            form.addEventListener('input', alEscribirEdicion);
         });
 
-        async function fetchData() {
-            estadoCargando(true, 'Actualizar Datos');
-            try {
-                const [resConf, resLista] = await Promise.all([apiAdmin('confirmados'), apiAdmin('invitados')]);
-                processData(resConf.confirmados, resLista.invitados);
+        // ================== CARGA ==================
 
-                document.getElementById('searchInput').disabled = false;
-                document.getElementById('searchInput').placeholder = "Buscar familia...";
-            } catch (error) {
-                console.error(error);
-                alert("Error cargando datos: " + error.message);
-            } finally {
-                estadoCargando(false, 'Actualizar Datos');
-            }
+        let cargando = null;
+        async function fetchData({ silencioso = false } = {}) {
+            if (cargando) return cargando;
+            if (!silencioso) estadoCargando(true, 'Actualizar');
+            cargando = (async () => {
+                try {
+                    const [resConf, resLista] = await Promise.all([apiAdmin('confirmados'), apiAdmin('invitados')]);
+                    versionActual = resConf.version || null;
+                    processData(resConf.confirmados, resLista.invitados);
+                    document.getElementById('searchInput').disabled = false;
+                    marcarVivo('ok');
+                } catch (error) {
+                    console.error(error);
+                    if (!silencioso) alert("Error cargando datos: " + error.message);
+                    marcarVivo('error', error.message);
+                } finally {
+                    if (!silencioso) estadoCargando(false, 'Actualizar');
+                    cargando = null;
+                }
+            })();
+            return cargando;
         }
 
         function processData(confirmaciones, listaOriginal) {
-            const mapaLista = {};
             const idsConfirmados = new Set();
-
+            mapaLista = {};
             listaOriginal.forEach(row => {
-                if (row.id && tieneDatos(row)) mapaLista[String(row.id).toUpperCase()] = row;
+                if (row.id) mapaLista[String(row.id).toUpperCase()] = row;
             });
 
             globalListYes = [];
             globalListNo = [];
             globalListPending = [];
 
-            // 1. Procesar Confirmaciones (SI y NO)
+            // 1. Confirmaciones (SÍ y NO)
             confirmaciones.forEach(conf => {
                 const status = String(conf.asistira || "").toLowerCase().trim();
                 const idConf = String(conf.id || "").trim().toUpperCase();
                 if (idConf) idsConfirmados.add(idConf);
+                const original = mapaLista[idConf];
 
                 if (status === "si" || status === "sí") {
                     globalListYes.push({
@@ -294,9 +473,10 @@
                         ado: num(conf.adolescentes),
                         nin: num(conf.ninos),
                         total: num(conf.cantidad) || (num(conf.adultos) + num(conf.adolescentes) + num(conf.ninos)),
+                        conf,
+                        ...datosFecha(conf),
                     });
                 } else if (status === "no") {
-                    const original = mapaLista[idConf];
                     globalListNo.push({
                         id: idConf,
                         familia: original ? nombreVisible(original) : conf.familia + " (ID perdido)",
@@ -305,14 +485,16 @@
                         ado: original ? num(original.adolescentes) : 0,
                         nin: original ? num(original.ninos) : 0,
                         total: original ? sumaPersonas(original) : 0,
+                        conf,
+                        ...datosFecha(conf),
                     });
                 }
             });
 
-            // 2. Procesar Pendientes (en invitados.json pero sin respuesta)
+            // 2. Pendientes (en invitados.json, con datos, pero sin respuesta)
             Object.values(mapaLista).forEach(row => {
                 const id = String(row.id).toUpperCase();
-                if (!idsConfirmados.has(id)) {
+                if (!idsConfirmados.has(id) && tieneDatos(row)) {
                     globalListPending.push({
                         id,
                         familia: nombreVisible(row),
@@ -326,48 +508,229 @@
                 }
             });
 
-            updateStatsCards(globalListYes, 'si');
-            updateStatsCards(globalListPending, 'pending');
-            updateStatsCards(globalListNo, 'no');
-
+            detectarCambios();
+            pintarResumen();
             filterData(document.getElementById('searchInput').value);
         }
 
-        function filterData(query) {
-            const lowerQuery = query.toLowerCase();
-            const targetList = currentTab === 'si' ? globalListYes : (currentTab === 'pending' ? globalListPending : globalListNo);
-
-            const filtered = targetList.filter(item =>
-                String(item.familia || "").toLowerCase().includes(lowerQuery) ||
-                String(item.nombres || "").toLowerCase().includes(lowerQuery) ||
-                String(item.mesa || "").toLowerCase() === lowerQuery
-            );
-
-            if (currentTab === 'si') renderTableSi(filtered);
-            else if (currentTab === 'pending') renderTablePending(filtered);
-            else renderTableNo(filtered);
+        // Compara con la carga anterior para resaltar las filas nuevas o modificadas
+        function detectarCambios() {
+            const nuevas = {};
+            [['si', globalListYes], ['pending', globalListPending], ['no', globalListNo]].forEach(([tab, lista]) => {
+                lista.forEach(i => { nuevas[i.id] = JSON.stringify([tab, i.familia, i.total, i.adu, i.ado, i.nin, i.nombres, i.mesa || '', i.actualizado || '', i.enviado || false]); });
+            });
+            cambiadas = new Set();
+            if (huellas) {
+                Object.entries(nuevas).forEach(([id, h]) => { if (huellas[id] !== h && !propios.has(id)) cambiadas.add(id); });
+                if (cambiadas.size === 1) {
+                    const id = [...cambiadas][0];
+                    const item = [...globalListYes, ...globalListNo, ...globalListPending].find(i => i.id === id);
+                    const tab = JSON.parse(nuevas[id])[0];
+                    const antes = huellas[id] ? JSON.parse(huellas[id])[0] : null;
+                    const accion = tab === antes ? 'actualizó su respuesta' : (tab === 'si' ? 'confirmó que asistirá' : tab === 'no' ? 'avisó que no asistirá' : 'cambió');
+                    mostrarToast(`${item ? item.familia : id} ${accion}`);
+                } else if (cambiadas.size > 1) {
+                    mostrarToast(`Hay ${cambiadas.size} cambios nuevos (resaltados en amarillo)`);
+                }
+            }
+            huellas = nuevas;
+            propios.clear();
         }
 
-        function updateStatsCards(data, type) {
+        function pintarResumen() {
+            const personas = lista => lista.reduce((acc, i) => acc + i.total, 0);
+            const si = personas(globalListYes);
+            const invitados = Object.values(mapaLista).filter(tieneDatos).reduce((acc, r) => acc + sumaPersonas(r), 0);
+            const familias = globalListYes.length + globalListNo.length + globalListPending.length;
+            const respondieron = globalListYes.length + globalListNo.length;
+
+            document.getElementById('resumenSi').textContent = si;
+            document.getElementById('resumenInvitados').textContent = invitados;
+            document.getElementById('resumenPorcentaje').textContent = familias ? Math.round(respondieron * 100 / familias) : 0;
+            document.getElementById('cuenta-si').textContent = globalListYes.length;
+            document.getElementById('cuenta-pending').textContent = globalListPending.length;
+            document.getElementById('cuenta-no').textContent = globalListNo.length;
+            pintarEstadisticas();
+        }
+
+        function listaActual() {
+            return currentTab === 'si' ? globalListYes : (currentTab === 'pending' ? globalListPending : globalListNo);
+        }
+
+        function pintarEstadisticas() {
+            const lista = listaActual();
+            const t = TABS[currentTab];
             let tAdu = 0, tAdo = 0, tNin = 0, tTotal = 0;
-            data.forEach(item => { tAdu += item.adu; tAdo += item.ado; tNin += item.nin; tTotal += item.total; });
+            lista.forEach(item => { tAdu += item.adu; tAdo += item.ado; tNin += item.nin; tTotal += item.total; });
+
+            document.getElementById('stat-principal').className = `p-5 rounded-xl border flex items-center justify-between ${t.clases}`;
+            document.getElementById('stat-titulo').textContent = t.titulo;
+            document.getElementById('stat-total').textContent = tTotal;
+            document.getElementById('stat-detalle').textContent = `${lista.length} ${lista.length === 1 ? 'familia' : 'familias'}`;
+            document.getElementById('stat-icono').className = `ph ${t.icono} text-4xl opacity-40`;
+            document.getElementById('stat-adu').textContent = tAdu;
+            document.getElementById('stat-ado').textContent = tAdo;
+            document.getElementById('stat-nin').textContent = tNin;
+            document.getElementById('grafica-titulo').textContent = t.grafica;
 
             // El total incluye a quienes solo tienen "Total" sin desglose
-            document.getElementById(`${type}-total`).innerText = tTotal;
-            document.getElementById(`${type}-adu`).innerText = tAdu;
-            document.getElementById(`${type}-ado`).innerText = tAdo;
-            document.getElementById(`${type}-nin`).innerText = tNin;
-
-            let colors;
-            if (type === 'si') colors = ['#2563eb', '#ca8a04', '#16a34a'];
-            else if (type === 'pending') colors = ['#ea580c', '#f97316', '#fdba74'];
-            else colors = ['#9ca3af', '#d1d5db', '#e5e7eb'];
-
-            const chartId = type === 'si' ? 'chartSi' : (type === 'pending' ? 'chartPending' : 'chartNo');
-            renderChart(chartId, [tAdu, tAdo, tNin], colors);
+            const sinDesglose = tTotal - tAdu - tAdo - tNin;
+            renderChart([tAdu, tAdo, tNin], t.colores, sinDesglose);
         }
 
-        // --- GUARDAR MESA EN confirmados.json ---
+        function filterData(query) {
+            const q = String(query || '').trim().toLowerCase();
+            const lista = listaActual();
+            const filtrada = lista.filter(item =>
+                !q ||
+                String(item.familia || "").toLowerCase().includes(q) ||
+                String(item.nombres || "").toLowerCase().includes(q) ||
+                String(item.id || "").toLowerCase().includes(q) ||
+                String(item.mesa || "").toLowerCase() === q
+            );
+            document.getElementById('contadorVisible').textContent = `Mostrando ${filtrada.length} de ${lista.length}`;
+            renderTabla(filtrada);
+        }
+
+        // ================== TABLAS ==================
+
+        const ENCABEZADOS = {
+            si: `<tr><th>Familia</th><th class="centro">Total</th><th class="centro text-blue-600">Adu</th><th class="centro text-yellow-600">Ado</th><th class="centro text-green-600">Niñ</th><th>Nombres</th><th>Confirmó</th><th class="centro">Mesa</th><th></th></tr>`,
+            pending: `<tr><th>Familia</th><th class="centro">Lugares</th><th class="centro text-blue-600">Adu</th><th class="centro text-yellow-600">Ado</th><th class="centro text-green-600">Niñ</th><th>Nombres</th><th></th></tr>`,
+            no: `<tr><th>Familia</th><th class="centro">Lugares</th><th class="centro">Adu</th><th class="centro">Ado</th><th class="centro">Niñ</th><th>Nombres</th><th>Respondió</th><th></th></tr>`,
+        };
+
+        function renderTabla(data) {
+            const t = TABS[currentTab];
+            document.getElementById('listado-titulo').textContent = `${t.listado} · ${data.length}`;
+            document.getElementById('listado-ayuda').textContent = t.ayuda;
+            document.getElementById('tabla-encabezado').innerHTML = ENCABEZADOS[currentTab];
+
+            const tbody = document.getElementById('tabla-cuerpo');
+            if (!data.length) {
+                tbody.innerHTML = `<tr class="sin-filas"><td colspan="9" class="text-center py-10 text-slate-400">No se encontraron resultados</td></tr>`;
+                return;
+            }
+            const fila = currentTab === 'si' ? filaSi : (currentTab === 'pending' ? filaPendiente : filaNo);
+            tbody.innerHTML = data.map(fila).join('');
+        }
+
+        function celdaFamilia(item, extra = '') {
+            return `
+                <td class="c-familia">
+                    <div class="familia">${esc(item.familia) || '-'}</div>
+                    <div class="flex flex-wrap items-center gap-2 mt-0.5"><span class="codigo">${esc(item.id)}</span>${extra}</div>
+                </td>`;
+        }
+
+        function celdaNum(valor, etiqueta, clase = '') {
+            return `<td class="c-num centro" data-label="${etiqueta}"><span class="numero ${valor ? clase : 'cero'}">${valor}</span></td>`;
+        }
+
+        function celdaNombres(nombres) {
+            const t = String(nombres || '').trim();
+            return `<td class="c-nombres" data-label="Nombres">${t && t !== '-' ? `<div class="nombres" title="${esc(t)}">${esc(t)}</div>` : '<span class="text-slate-300">—</span>'}</td>`;
+        }
+
+        function claseFila(item) {
+            return cambiadas.has(item.id) ? 'cambio' : '';
+        }
+
+        function filaSi(item) {
+            return `
+                <tr class="${claseFila(item)}">
+                    ${celdaFamilia(item)}
+                    <td class="c-num centro" data-label="Total"><span class="pastilla-total bg-green-100 text-green-800 numero">${item.total}</span></td>
+                    ${celdaNum(item.adu, 'Adultos', 'text-blue-600')}
+                    ${celdaNum(item.ado, 'Adoles.', 'text-yellow-600')}
+                    ${celdaNum(item.nin, 'Niños', 'text-green-600')}
+                    ${celdaNombres(item.nombres)}
+                    <td class="c-fecha" data-label="Confirmó">${celdaFecha(item)}</td>
+                    <td class="c-mesa centro" data-label="Mesa">
+                        <div class="mesa-wrap">
+                            <input class="mesa-input" data-id="${esc(item.id)}" value="${esc(item.mesa)}" placeholder="—" maxlength="30" inputmode="text" aria-label="Mesa de ${esc(item.familia)}">
+                            <span class="mesa-estado"></span>
+                        </div>
+                    </td>
+                    <td class="c-acciones">
+                        <div class="acciones">
+                            <button type="button" class="btn-accion btn-editar" data-editar="${esc(item.id)}"><i class="ph ph-pencil-simple"></i> Editar</button>
+                            <button type="button" class="btn-accion btn-qr" data-copiar="${esc(linkPase(item.id))}" title="Copia el link del pase con QR"><i class="ph ph-qr-code"></i> Copiar QR</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+
+        function filaPendiente(item) {
+            const enviada = item.enviado
+                ? '<span class="insignia bg-green-50 text-green-700"><i class="ph-fill ph-check-circle"></i> Enviada</span>'
+                : '<span class="insignia bg-slate-100 text-slate-500"><i class="ph ph-circle"></i> No enviada</span>';
+            return `
+                <tr class="${claseFila(item)}">
+                    ${celdaFamilia(item, enviada)}
+                    <td class="c-num centro" data-label="Lugares"><span class="pastilla-total bg-orange-50 text-orange-700 numero">${item.total}</span></td>
+                    ${celdaNum(item.adu, 'Adultos')}
+                    ${celdaNum(item.ado, 'Adoles.')}
+                    ${celdaNum(item.nin, 'Niños')}
+                    ${celdaNombres(item.nombres)}
+                    <td class="c-acciones">
+                        <div class="acciones">
+                            <button type="button" class="btn-accion btn-registrar" data-editar="${esc(item.id)}"><i class="ph ph-note-pencil"></i> Registrar</button>
+                            <button type="button" class="btn-accion btn-copiar" data-copiar="${esc(linkInvitacion(item.id))}"><i class="ph ph-copy"></i> Copiar link</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+
+        function filaNo(item) {
+            return `
+                <tr class="${claseFila(item)}">
+                    ${celdaFamilia(item)}
+                    <td class="c-num centro" data-label="Lugares"><span class="pastilla-total bg-slate-100 text-slate-500 numero">${item.total}</span></td>
+                    ${celdaNum(item.adu, 'Adultos', 'text-slate-500')}
+                    ${celdaNum(item.ado, 'Adoles.', 'text-slate-500')}
+                    ${celdaNum(item.nin, 'Niños', 'text-slate-500')}
+                    ${celdaNombres(item.nombres)}
+                    <td class="c-fecha ancho" data-label="Respondió">${celdaFecha(item)}</td>
+                    <td class="c-acciones">
+                        <div class="acciones">
+                            <button type="button" class="btn-accion btn-editar" data-editar="${esc(item.id)}"><i class="ph ph-pencil-simple"></i> Editar</button>
+                            <button type="button" class="btn-accion btn-copiar" data-copiar="${esc(linkInvitacion(item.id))}"><i class="ph ph-copy"></i> Copiar link</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.pestana').forEach(b => b.classList.toggle('activa', b.dataset.tab === tab));
+            pintarEstadisticas();
+            filterData(document.getElementById('searchInput').value);
+        }
+
+        function renderChart(data, colors, sinDesglose) {
+            const labels = ['Adultos', 'Adolescentes', 'Niños'];
+            data = data.slice();
+            colors = colors.slice();
+            if (sinDesglose > 0) { labels.push('Sin desglose'); data.push(sinDesglose); colors.push('#e2e8f0'); }
+
+            if (chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = data;
+                chartInstance.data.datasets[0].backgroundColor = colors;
+                chartInstance.update();
+                return;
+            }
+            const enCelular = window.matchMedia('(max-width: 640px)').matches;
+            chartInstance = new Chart(document.getElementById('grafica'), {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 10 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: enCelular ? 'bottom' : 'right' } } }
+            });
+        }
+
+        // ================== MESA (se guarda sola) ==================
+
         async function guardarMesa(input) {
             const id = input.dataset.id;
             const mesa = input.value.trim();
@@ -379,12 +742,14 @@
             estado.innerHTML = '<i class="ph ph-spinner animate-spin text-indigo-500"></i>';
             try {
                 await apiAdmin('actualizar_mesa', { id, mesa });
-                if (item) item.mesa = mesa;
+                if (item) { item.mesa = mesa; item.conf.mesa = mesa; }
+                propios.add(id); // no resaltar como "cambio nuevo" algo que hiciste tú
                 input.className = 'mesa-input ok';
                 estado.innerHTML = '<i class="ph-bold ph-check text-green-600"></i>';
                 setTimeout(() => {
                     if (input.classList.contains('ok')) { input.className = 'mesa-input'; estado.innerHTML = ''; }
                 }, 1800);
+                revisarPronto();
             } catch (error) {
                 input.className = 'mesa-input error';
                 estado.innerHTML = '<i class="ph-bold ph-warning text-red-600"></i>';
@@ -394,115 +759,309 @@
             }
         }
 
-        // --- RENDERIZADORES ---
+        // ================== EDITAR / REGISTRAR RESPUESTA ==================
 
-        function renderTableSi(data) {
-            const tbody = document.getElementById('table-si');
-            document.getElementById('si-count-rows').innerText = data.length + " filas";
-            if (data.length === 0) { tbody.innerHTML = emptyRow(8); return; }
+        let edicion = null; // { id, existe }
 
-            tbody.innerHTML = data.map(item => `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
-                    <td class="px-6 py-4 text-center"><span class="bg-green-100 text-green-800 px-2 py-1 rounded font-bold">${item.total}</span></td>
-                    <td class="px-6 py-4 text-center text-blue-600">${item.adu}</td>
-                    <td class="px-6 py-4 text-center text-yellow-600">${item.ado}</td>
-                    <td class="px-6 py-4 text-center text-green-600">${item.nin}</td>
-                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
-                    <td class="px-4 py-3 text-center">
-                        <div class="mesa-wrap">
-                            <input class="mesa-input" data-id="${esc(item.id)}" value="${esc(item.mesa)}" placeholder="—" maxlength="30" inputmode="text" aria-label="Mesa de ${esc(item.familia)}">
-                            <span class="mesa-estado"></span>
+        function abrirEditar(id) {
+            const item = globalListYes.concat(globalListNo).find(i => i.id === id);
+            const inv = mapaLista[id] || {};
+            const conf = item ? item.conf : null;
+            edicion = { id, existe: !!conf };
+
+            const form = document.getElementById('formEditar');
+            form.reset();
+            document.getElementById('editarModo').textContent = conf ? 'Editar respuesta' : 'Registrar respuesta';
+            document.getElementById('editarTitulo').textContent = conf ? (conf.familia || nombreVisible(inv)) : nombreVisible(inv);
+            document.getElementById('editarCodigo').textContent = id;
+            document.getElementById('btnQuitar').classList.toggle('hidden', !conf);
+
+            // Si es nueva se llena con lo asignado en la invitación; si existe, con lo que respondió
+            const base = conf && String(conf.asistira).toLowerCase().startsWith('s') ? conf : null;
+            const valor = (campo, respaldo) => base ? num(base[campo]) : num(inv[respaldo || campo]);
+            form.elements.familia.value = conf ? (conf.familia || '') : String(inv.familia || '').trim();
+            form.elements.adultos.value = valor('adultos') || '';
+            form.elements.adolescentes.value = valor('adolescentes') || '';
+            form.elements.ninos.value = valor('ninos') || '';
+            form.elements.cantidad.value = (base ? num(base.cantidad) : sumaPersonas(inv)) || '';
+            form.elements.nombres.value = base ? (base.nombres || '') : String(inv.nombres || '');
+            form.elements.mesa.value = conf ? (conf.mesa || '') : String(inv.mesa || '');
+            const radio = form.querySelector(`input[name="asistira"][value="${conf ? (base ? 'Si' : 'No') : 'Si'}"]`);
+            radio.checked = true;
+
+            const asignados = sumaPersonas(inv);
+            document.getElementById('editarAsignados').innerHTML = asignados
+                ? `Asignados en la invitación: <b>${asignados}</b>` + (num(inv.adultos) + num(inv.adolescentes) + num(inv.ninos)
+                    ? ` (${num(inv.adultos)} adu · ${num(inv.adolescentes)} ado · ${num(inv.ninos)} niñ)` : '')
+                : 'La invitación no tiene cantidad asignada.';
+
+            ocultarErrorEdicion();
+            pintarDetallesEdicion();
+            revisarAsignados();
+            document.getElementById('modalEditar').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function cerrarEditar() {
+            if (document.getElementById('modalEditar').classList.contains('hidden')) return;
+            document.getElementById('modalEditar').classList.add('hidden');
+            document.body.style.overflow = '';
+            edicion = null;
+            revisarPronto(); // si hubo cambios mientras estaba abierta, se aplican ahora
+        }
+
+        function pintarDetallesEdicion() {
+            const si = document.querySelector('#formEditar input[name="asistira"]:checked')?.value === 'Si';
+            document.getElementById('editarDetalles').classList.toggle('hidden', !si);
+        }
+
+        function alEscribirEdicion(e) {
+            const el = e.target;
+            const form = el.form;
+            if (['cantidad', 'adultos', 'adolescentes', 'ninos'].includes(el.name)) {
+                const limpio = el.value.replace(/\D/g, '').slice(0, 3);
+                if (limpio !== el.value) el.value = limpio;
+                // El total se calcula solo al llenar adultos / adolescentes / niños
+                if (el.name !== 'cantidad') {
+                    const suma = num(form.elements.adultos.value) + num(form.elements.adolescentes.value) + num(form.elements.ninos.value);
+                    if (suma > 0) form.elements.cantidad.value = suma;
+                }
+                revisarAsignados();
+            }
+            ocultarErrorEdicion();
+        }
+
+        // Aviso (no bloquea) si se pasa de los lugares asignados
+        function revisarAsignados() {
+            if (!edicion) return;
+            const inv = mapaLista[edicion.id] || {};
+            const f = document.getElementById('formEditar').elements;
+            const pasa = (campo, max) => max > 0 && num(f[campo].value) > max;
+            f.adultos.classList.toggle('aviso', pasa('adultos', num(inv.adultos)));
+            f.adolescentes.classList.toggle('aviso', pasa('adolescentes', num(inv.adolescentes)));
+            f.ninos.classList.toggle('aviso', pasa('ninos', num(inv.ninos)));
+            f.cantidad.classList.toggle('aviso', pasa('cantidad', sumaPersonas(inv)));
+        }
+
+        function errorEdicion(texto) {
+            const p = document.getElementById('editarError');
+            p.textContent = texto;
+            p.classList.remove('hidden');
+        }
+        function ocultarErrorEdicion() { document.getElementById('editarError').classList.add('hidden'); }
+
+        async function guardarEdicion(e) {
+            e.preventDefault();
+            if (!edicion) return;
+            const f = e.target.elements;
+            const asistira = e.target.querySelector('input[name="asistira"]:checked')?.value;
+            if (!asistira) return errorEdicion('Indica si asistirá o no.');
+
+            const datos = {
+                id: edicion.id,
+                asistira,
+                familia: f.familia.value.trim(),
+                adultos: num(f.adultos.value),
+                adolescentes: num(f.adolescentes.value),
+                ninos: num(f.ninos.value),
+                cantidad: num(f.cantidad.value),
+                nombres: f.nombres.value.trim(),
+                mesa: f.mesa.value.trim(),
+            };
+            if (asistira === 'Si' && datos.adultos + datos.adolescentes + datos.ninos + datos.cantidad < 1) {
+                return errorEdicion('Indica cuántas personas asistirán.');
+            }
+
+            const btn = document.getElementById('btnGuardarEdicion');
+            btn.disabled = true;
+            btn.classList.add('opacity-75');
+            try {
+                await apiAdmin('editar_confirmacion', datos);
+                const nombre = datos.familia || document.getElementById('editarTitulo').textContent;
+                propios.add(edicion.id);
+                cerrarEditar();
+                await fetchData({ silencioso: true });
+                mostrarToast(`${nombre}: respuesta guardada`);
+            } catch (error) {
+                errorEdicion('No se pudo guardar: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75');
+            }
+        }
+
+        async function quitarRespuesta() {
+            if (!edicion || !edicion.existe) return;
+            const nombre = document.getElementById('editarTitulo').textContent;
+            if (!confirm(`¿Quitar la respuesta de «${nombre}»?\n\nVolverá a la lista de pendientes y podrá confirmar de nuevo con su link. Su historial de cambios se borrará.`)) return;
+            try {
+                await apiAdmin('borrar_confirmacion', { id: edicion.id });
+                propios.add(edicion.id);
+                cerrarEditar();
+                await fetchData({ silencioso: true });
+                mostrarToast(`${nombre} regresó a pendientes`);
+            } catch (error) {
+                errorEdicion('No se pudo quitar: ' + error.message);
+            }
+        }
+
+        // ================== FECHA E HISTORIAL DE CAMBIOS ==================
+
+        // Cada envío del formulario queda en conf.historial (el más reciente al final).
+        // Las confirmaciones anteriores a esta función no lo tienen: se usa el estado actual.
+        function datosFecha(conf) {
+            let historial = Array.isArray(conf.historial) ? conf.historial.slice() : [];
+            if (!historial.length) {
+                historial = [{ fecha: conf.actualizado || conf.fecha, asistira: conf.asistira, cantidad: conf.cantidad,
+                    adultos: conf.adultos, adolescentes: conf.adolescentes, ninos: conf.ninos, nombres: conf.nombres, incompleto: conf.actualizado && conf.actualizado !== conf.fecha }];
+            }
+            return { fecha: conf.fecha || '', actualizado: conf.actualizado || conf.fecha || '', historial };
+        }
+
+        function celdaFecha(item) {
+            const cambios = item.historial.length - 1;
+            const modificado = item.actualizado && item.actualizado !== item.fecha;
+            const ultimo = item.historial[item.historial.length - 1] || {};
+            return `
+                <div class="whitespace-nowrap">
+                    <p class="font-semibold text-slate-700 text-[13px]" title="${esc(item.fecha)}">${esc(fechaLarga(item.fecha, true)) || '-'}</p>
+                    ${modificado ? `<p class="text-[11px] text-amber-600">${ultimo.origen === 'admin' ? 'Editado en el panel' : 'Modificó'}: ${esc(fechaLarga(item.actualizado, true))}</p>` : ''}
+                    <button type="button" data-historial="${esc(item.id)}" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold ${cambios > 0 || modificado ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'} border rounded-full px-2 py-0.5 transition">
+                        <i class="ph ph-clock-counter-clockwise"></i>
+                        ${cambios > 0 ? `${cambios} ${cambios === 1 ? 'cambio' : 'cambios'}` : (modificado ? 'Modificado' : 'Sin cambios')}
+                    </button>
+                </div>`;
+        }
+
+        function textoAsistencia(valor) {
+            return String(valor || '').toLowerCase().startsWith('s') ? 'Sí asistirá' : (valor ? 'No asistirá' : '-');
+        }
+
+        function abrirHistorial(id) {
+            const item = globalListYes.concat(globalListNo).find(i => i.id === id);
+            if (!item) return;
+            document.getElementById('historialTitulo').textContent = item.familia || id;
+            const cambios = item.historial.length - 1;
+            document.getElementById('historialSub').textContent =
+                `Código ${id} · Respondió el ${fechaLarga(item.fecha, true)} · ${cambios > 0 ? cambios + (cambios === 1 ? ' cambio' : ' cambios') : 'sin cambios'}`;
+
+            // Del más reciente al más antiguo, marcando lo que cambió respecto al envío anterior
+            const campos = [['asistira', 'Asistencia', textoAsistencia], ['cantidad', 'Personas'], ['adultos', 'Adultos'],
+                ['adolescentes', 'Adolescentes'], ['ninos', 'Niños'], ['nombres', 'Nombres']];
+            const lista = item.historial.map((h, i) => {
+                const prev = item.historial[i - 1];
+                const dif = campo => prev && String(prev[campo] ?? '').trim() !== String(h[campo] ?? '').trim();
+                const valor = (campo, formato) => {
+                    const v = formato ? formato(h[campo]) : (campo === 'nombres' ? h[campo] : num(h[campo]));
+                    return `<span class="${dif(campo) ? 'cambio-dif' : ''}">${esc(v) || '-'}</span>`;
+                };
+                const cambiados = prev ? campos.filter(([c]) => dif(c)).map(([c, etiqueta, f]) =>
+                    c === 'nombres' ? 'Nombres editados'
+                        : `${etiqueta}: ${esc(f ? f(prev[c]) : num(prev[c]))} → <b>${esc(f ? f(h[c]) : num(h[c]))}</b>`) : [];
+                const si = String(h.asistira || '').toLowerCase().startsWith('s');
+                const ultimo = i === item.historial.length - 1;
+                const admin = h.origen === 'admin';
+
+                return `
+                    <li class="relative pl-6 border-l-2 ${ultimo ? 'border-indigo-400' : 'border-slate-200'}">
+                        <span class="absolute -left-[7px] top-1 h-3 w-3 rounded-full ${ultimo ? 'bg-indigo-500' : 'bg-slate-300'}"></span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">${esc(fechaLarga(h.fecha, true))}</span>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${i === 0 ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'}">${i === 0 ? 'Primera respuesta' : 'Cambio ' + i}</span>
+                            ${admin ? '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-700"><i class="ph-bold ph-pencil-simple"></i> Panel</span>' : ''}
+                            ${ultimo ? '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Actual</span>' : ''}
                         </div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <button data-copiar="${esc(linkPase(item.id))}" title="Copia el link del pase con QR"
-                            class="flex items-center justify-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-lg hover:bg-green-100 text-xs font-bold transition whitespace-nowrap w-28 mx-auto">
-                            <i class="ph ph-qr-code text-lg"></i> Copiar QR
-                        </button>
-                    </td>
-                </tr>`).join('');
-        }
-
-        function renderTablePending(data) {
-            const tbody = document.getElementById('table-pending');
-            document.getElementById('pending-count-rows').innerText = data.length + " filas";
-            if (data.length === 0) { tbody.innerHTML = emptyRow(7); return; }
-
-            tbody.innerHTML = data.map(item => `
-                <tr class="hover:bg-orange-50/50 transition-colors">
-                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
-                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
-                    <td class="px-6 py-4 text-center text-gray-500">${item.adu}</td>
-                    <td class="px-6 py-4 text-center text-gray-500">${item.ado}</td>
-                    <td class="px-6 py-4 text-center text-gray-500">${item.nin}</td>
-                    <td class="px-6 py-4 text-center">${item.enviado
-                        ? '<i class="ph-fill ph-check-circle text-green-500 text-lg" title="Invitación enviada"></i>'
-                        : '<i class="ph ph-circle text-gray-300 text-lg" title="Aún no se envía"></i>'}</td>
-                    <td class="px-6 py-4 text-center">
-                        <button data-copiar="${esc(linkInvitacion(item.id))}"
-                            class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 text-xs font-bold transition whitespace-nowrap">
-                            Copiar Link
-                        </button>
-                    </td>
-                </tr>`).join('');
-        }
-
-        function renderTableNo(data) {
-            const tbody = document.getElementById('table-no');
-            document.getElementById('no-count-rows').innerText = data.length + " filas";
-            if (data.length === 0) { tbody.innerHTML = emptyRow(6); return; }
-
-            tbody.innerHTML = data.map(item => `
-                <tr class="hover:bg-red-50/30 transition-colors">
-                    <td class="px-6 py-4 font-bold text-gray-800">${esc(item.familia) || '-'}</td>
-                    <td class="px-6 py-4 text-gray-500 text-xs truncate max-w-xs" title="${esc(item.nombres)}">${esc(item.nombres)}</td>
-                    <td class="px-6 py-4 text-center text-gray-400">${item.adu}</td>
-                    <td class="px-6 py-4 text-center text-gray-400">${item.ado}</td>
-                    <td class="px-6 py-4 text-center text-gray-400">${item.nin}</td>
-                    <td class="px-6 py-4 text-center">
-                        <button data-copiar="${esc(linkInvitacion(item.id))}" class="text-gray-400 hover:text-blue-600 underline text-xs">
-                            Copiar Link
-                        </button>
-                    </td>
-                </tr>`).join('');
-        }
-
-        function emptyRow(columnas) {
-            return `<tr><td colspan="${columnas}" class="text-center py-8 text-gray-400">No se encontraron resultados</td></tr>`;
-        }
-
-        function switchTab(tab) {
-            currentTab = tab;
-            const inactiveClass = "flex-1 py-3 px-1 text-center transition flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2 tab-inactive";
-            const activa = { si: 'active-si', pending: 'active-pending', no: 'active-no' };
-
-            ['si', 'pending', 'no'].forEach(t => {
-                document.getElementById('tab-' + t).className = t === tab ? inactiveClass.replace('tab-inactive', activa[t]) : inactiveClass;
-                document.getElementById('view-' + t).classList.toggle('hidden', t !== tab);
+                        ${prev ? `<p class="text-xs mt-1 ${cambiados.length ? 'text-amber-700' : 'text-slate-400'}">${cambiados.length ? cambiados.join(' · ') : 'Volvió a enviar sin cambios'}</p>` : ''}
+                        ${h.incompleto ? '<p class="text-xs mt-1 text-slate-400">Se modificó antes de que se guardara el historial; solo se conoce el estado actual.</p>' : ''}
+                        <div class="mt-2 bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm space-y-1">
+                            <p><span class="font-bold ${si ? 'text-green-700' : 'text-red-600'}">${valor('asistira', textoAsistencia)}</span>
+                               ${si ? ` · ${valor('cantidad')} personas (Adu ${valor('adultos')}, Ado ${valor('adolescentes')}, Niñ ${valor('ninos')})` : ''}</p>
+                            ${si && h.nombres ? `<p class="text-xs text-slate-600 whitespace-pre-line break-words">${valor('nombres')}</p>` : ''}
+                        </div>
+                    </li>`;
             });
-
-            filterData(document.getElementById('searchInput').value);
+            document.getElementById('historialLista').innerHTML = lista.reverse().join('');
+            document.getElementById('modalHistorial').classList.remove('hidden');
         }
 
-        function renderChart(canvasId, data, colors) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            if (canvasId === 'chartSi' && chartSiInstance) chartSiInstance.destroy();
-            if (canvasId === 'chartPending' && chartPendingInstance) chartPendingInstance.destroy();
-            if (canvasId === 'chartNo' && chartNoInstance) chartNoInstance.destroy();
+        function cerrarHistorial() {
+            document.getElementById('modalHistorial').classList.add('hidden');
+        }
 
-            const newChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Adultos', 'Adolescentes', 'Niños'],
-                    datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 10 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        // ================== ACTUALIZACIÓN EN VIVO ==================
+        // Cada 15 s pregunta a api.php por la "versión" de los datos (solo la fecha y tamaño de los
+        // archivos, una respuesta de unos pocos bytes). Solo si cambió vuelve a descargar todo.
+        // Se pausa cuando la pestaña no está visible y mientras estás editando algo.
+
+        const INTERVALO_VIVO = 15000;
+        let versionActual = null;
+        let temporizadorVivo = null;
+        let ultimaRevision = null;
+
+        function iniciarEnVivo() {
+            programarRevision();
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) { clearTimeout(temporizadorVivo); marcarVivo('pausa'); }
+                else revisarPronto();
             });
+            setInterval(pintarHoraVivo, 10000);
+        }
 
-            if (canvasId === 'chartSi') chartSiInstance = newChart;
-            if (canvasId === 'chartPending') chartPendingInstance = newChart;
-            if (canvasId === 'chartNo') chartNoInstance = newChart;
+        function programarRevision(espera = INTERVALO_VIVO) {
+            clearTimeout(temporizadorVivo);
+            temporizadorVivo = setTimeout(revisarCambios, espera);
+        }
+
+        function revisarPronto() { programarRevision(300); }
+
+        // No se recarga la tabla mientras escribes una mesa o tienes una ventana abierta
+        function estaEditando() {
+            const activo = document.activeElement;
+            return edicion !== null
+                || !document.getElementById('modalHistorial').classList.contains('hidden')
+                || (activo && activo.classList && activo.classList.contains('mesa-input'));
+        }
+
+        async function revisarCambios() {
+            if (document.hidden) return;
+            if (estaEditando() || cargando) { programarRevision(); return; }
+            try {
+                const { version } = await apiAdmin('version');
+                if (version !== versionActual && !estaEditando()) await fetchData({ silencioso: true });
+                else marcarVivo('ok');
+            } catch (error) {
+                marcarVivo('error', error.message);
+            }
+            programarRevision();
+        }
+
+        function marcarVivo(estado, detalle) {
+            const punto = document.getElementById('puntoVivo');
+            punto.className = 'punto-vivo' + (estado === 'ok' ? '' : ' ' + estado);
+            if (estado === 'ok') ultimaRevision = new Date();
+            document.getElementById('textoVivo').title = detalle || '';
+            pintarHoraVivo(estado);
+        }
+
+        function pintarHoraVivo(estado) {
+            const texto = document.getElementById('textoVivo');
+            const punto = document.getElementById('puntoVivo');
+            estado = estado || (punto.classList.contains('error') ? 'error' : punto.classList.contains('pausa') ? 'pausa' : 'ok');
+            if (estado === 'error') { texto.textContent = 'Sin conexión · reintentando'; return; }
+            if (estado === 'pausa') { texto.textContent = 'En pausa'; return; }
+            const seg = ultimaRevision ? Math.round((Date.now() - ultimaRevision) / 1000) : 0;
+            texto.textContent = 'En vivo · ' + (seg < 20 ? 'al día' : `revisado hace ${seg < 60 ? seg + ' s' : Math.round(seg / 60) + ' min'}`);
+        }
+
+        // ================== AVISOS ==================
+
+        let temporizadorToast = null;
+        function mostrarToast(texto) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastTexto').textContent = texto;
+            toast.classList.add('visible');
+            clearTimeout(temporizadorToast);
+            temporizadorToast = setTimeout(() => toast.classList.remove('visible'), 3500);
         }
     </script>
 </body>

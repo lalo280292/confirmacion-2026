@@ -22,6 +22,10 @@
 //   POST api.php?accion=guardar_invitados      {"cambios":[{id, familia, ...}]}
 //   GET  api.php?accion=confirmados
 //   POST api.php?accion=actualizar_mesa        {"id":"XXXXX","mesa":"5"}
+//   POST api.php?accion=editar_confirmacion    {"id","asistira","adultos","adolescentes","ninos","cantidad","nombres","mesa","familia"}
+//                                              corrige (o registra a mano) la respuesta de un invitado; queda en el historial
+//   POST api.php?accion=borrar_confirmacion    {"id":"XXXXX"}  quita la respuesta: el invitado vuelve a "pendientes"
+//   GET  api.php?accion=version                huella de los datos (muy ligera) para actualizar confirmados.html en vivo
 //   POST api.php?accion=formulario             {"visible":true}
 //   POST api.php?accion=registrar_acceso       {"id":"XXXXX","personas":3}  marca el código como usado
 //   POST api.php?accion=deshacer_acceso        {"id":"XXXXX"}  borra la última entrada de ese código
@@ -179,6 +183,43 @@ function con_mesa(array $confirmacion, array $invitados)
     return $confirmacion;
 }
 
+// Una entrada del historial de cambios: lo que el invitado envió en el formulario y cuándo
+// ($origen = 'admin' cuando el cambio se hizo desde confirmados.html)
+function cambio_confirmacion(array $c, $fecha, $origen = '')
+{
+    $cambio = [
+        'fecha' => $fecha,
+        'asistira' => $c['asistira'] ?? '',
+        'cantidad' => (int) ($c['cantidad'] ?? 0),
+        'adultos' => (int) ($c['adultos'] ?? 0),
+        'adolescentes' => (int) ($c['adolescentes'] ?? 0),
+        'ninos' => (int) ($c['ninos'] ?? 0),
+        'nombres' => (string) ($c['nombres'] ?? ''),
+    ];
+    if ($origen !== '') $cambio['origen'] = $origen;
+    return $cambio;
+}
+
+// Huella de los archivos de datos: cambia cada vez que alguien confirma o se edita algo.
+// No interpreta los JSON: solo su fecha, tamaño y un checksum rápido (crc32), así que es muy ligera.
+function version_datos()
+{
+    clearstatcache();
+    $partes = [];
+    foreach (['confirmados.json', 'invitados.json', 'formulario.txt'] as $archivo) {
+        $ruta = DATA_DIR . '/' . $archivo;
+        $partes[] = is_file($ruta) ? filemtime($ruta) . '-' . hash_file('crc32b', $ruta) : '0';
+    }
+    return implode('.', $partes);
+}
+
+// El historial solo se muestra en las páginas de administración
+function publica(array $confirmacion)
+{
+    unset($confirmacion['historial']);
+    return $confirmacion;
+}
+
 // ---------- Estado del formulario (antes control.php) ----------
 
 function formulario_visible()
@@ -242,7 +283,7 @@ switch ($accion) {
             'ok' => true,
             'formVisible' => formulario_visible(),
             'invitado' => $invitado,
-            'confirmacion' => $j >= 0 ? con_mesa($confirmados[$j], $invitados) : null,
+            'confirmacion' => $j >= 0 ? publica(con_mesa($confirmados[$j], $invitados)) : null,
         ]);
 
     case 'confirmacion':
@@ -250,7 +291,7 @@ switch ($accion) {
         $confirmados = leer('confirmados');
         $j = indice($confirmados, $id);
         if ($j < 0) fallar('Aún no hay una confirmación registrada con este código.', 404);
-        responder(['ok' => true, 'confirmacion' => con_mesa($confirmados[$j], leer('invitados'))]);
+        responder(['ok' => true, 'confirmacion' => publica(con_mesa($confirmados[$j], leer('invitados')))]);
 
     case 'firmas':
         $firmas = leer('firmas');
@@ -308,9 +349,12 @@ switch ($accion) {
         $ahora = date('Y-m-d H:i:s');
 
         // Si el invitado vuelve a confirmar se actualiza su registro (no se duplica)
+        // y cada envío queda guardado en "historial" para ver qué cambió y cuándo.
         $registro = con_base('confirmados', function (array &$lista) use ($id, $familia, $asistira, $cantidad, $adultos, $adolescentes, $ninos, $nombres, $ahora) {
             $j = indice($lista, $id);
             $previo = $j >= 0 ? $lista[$j] : null;
+            $historial = $previo ? ($previo['historial'] ?? [cambio_confirmacion($previo, $previo['actualizado'] ?? $previo['fecha'] ?? '')]) : [];
+            $historial[] = cambio_confirmacion(compact('asistira', 'cantidad', 'adultos', 'adolescentes', 'ninos', 'nombres'), $ahora);
             $registro = [
                 'id' => $id,
                 'familia' => $familia,
@@ -323,6 +367,7 @@ switch ($accion) {
                 'mesa' => $previo ? ($previo['mesa'] ?? '') : '', // conserva la mesa si ya la editaron en confirmados.html
                 'fecha' => $previo ? $previo['fecha'] : $ahora,
                 'actualizado' => $ahora,
+                'historial' => array_slice($historial, -MAX_HISTORIAL),
             ];
             if ($j >= 0) $lista[$j] = $registro;
             else $lista[] = $registro;
@@ -338,7 +383,7 @@ switch ($accion) {
             });
         }
 
-        responder(['ok' => true, 'confirmacion' => con_mesa($registro, $invitados)]);
+        responder(['ok' => true, 'confirmacion' => publica(con_mesa($registro, $invitados))]);
 
     case 'escaneo':
         $id = normalizar_id($_GET['id'] ?? '');
@@ -357,7 +402,7 @@ switch ($accion) {
             'ok' => true,
             'id' => $id,
             'invitado' => $invitado,
-            'confirmacion' => $j >= 0 ? con_mesa($confirmados[$j], $invitados) : null,
+            'confirmacion' => $j >= 0 ? publica(con_mesa($confirmados[$j], $invitados)) : null,
             'accesos' => accesos_de($id),
         ]);
 
@@ -461,7 +506,80 @@ switch ($accion) {
         requiere_admin();
         $invitados = leer('invitados');
         $confirmados = array_map(function ($c) use ($invitados) { return con_mesa($c, $invitados); }, leer('confirmados'));
-        responder(['ok' => true, 'confirmados' => $confirmados]);
+        responder(['ok' => true, 'confirmados' => $confirmados, 'version' => version_datos()]);
+
+    case 'version':
+        requiere_admin();
+        responder(['ok' => true, 'version' => version_datos()]);
+
+    case 'editar_confirmacion':
+        requiere_admin();
+        requiere_post();
+        $id = normalizar_id($entrada['id'] ?? '');
+        if ($id === '') fallar('Código inválido.');
+        $invitados = leer('invitados');
+        $i = indice($invitados, $id);
+
+        $asistira = $entrada['asistira'] ?? '';
+        if (!in_array($asistira, ['Si', 'No'], true)) fallar('Indica si asistirá o no.');
+
+        // Desde el panel sí se permite pasar de los lugares asignados (por si se autorizó un lugar extra)
+        $adultos = $adolescentes = $ninos = $cantidad = 0;
+        $nombres = '';
+        if ($asistira === 'Si') {
+            $adultos = entero($entrada['adultos'] ?? 0, 0, 999);
+            $adolescentes = entero($entrada['adolescentes'] ?? 0, 0, 999);
+            $ninos = entero($entrada['ninos'] ?? 0, 0, 999);
+            $suma = $adultos + $adolescentes + $ninos;
+            $cantidad = $suma > 0 ? $suma : entero($entrada['cantidad'] ?? 0, 0, 999);
+            if ($cantidad < 1) fallar('Indica cuántas personas asistirán.');
+            $nombres = texto($entrada['nombres'] ?? '', 1000);
+        }
+        $ahora = date('Y-m-d H:i:s');
+
+        $registro = con_base('confirmados', function (array &$lista) use ($id, $i, $invitados, $entrada, $asistira, $cantidad, $adultos, $adolescentes, $ninos, $nombres, $ahora) {
+            $j = indice($lista, $id);
+            if ($j < 0 && $i < 0) fallar('Este código no existe.', 404);
+            $previo = $j >= 0 ? $lista[$j] : null;
+
+            $familia = texto($entrada['familia'] ?? '', 150);
+            if ($familia === '') $familia = $previo ? $previo['familia'] : nombre_invitado($invitados[$i]);
+            $mesa = array_key_exists('mesa', $entrada) ? texto($entrada['mesa'], 30) : ($previo['mesa'] ?? '');
+
+            $historial = $previo ? ($previo['historial'] ?? [cambio_confirmacion($previo, $previo['actualizado'] ?? $previo['fecha'] ?? '')]) : [];
+            $historial[] = cambio_confirmacion(compact('asistira', 'cantidad', 'adultos', 'adolescentes', 'ninos', 'nombres'), $ahora, 'admin');
+            $registro = [
+                'id' => $id,
+                'familia' => $familia,
+                'asistira' => $asistira,
+                'cantidad' => $cantidad,
+                'adultos' => $adultos,
+                'adolescentes' => $adolescentes,
+                'ninos' => $ninos,
+                'nombres' => $nombres,
+                'mesa' => $mesa,
+                'fecha' => $previo ? $previo['fecha'] : $ahora,
+                'actualizado' => $ahora,
+                'historial' => array_slice($historial, -MAX_HISTORIAL),
+            ];
+            if ($j >= 0) $lista[$j] = $registro;
+            else $lista[] = $registro;
+            return $registro;
+        });
+        responder(['ok' => true, 'confirmacion' => con_mesa($registro, $invitados)]);
+
+    case 'borrar_confirmacion':
+        requiere_admin();
+        requiere_post();
+        $id = normalizar_id($entrada['id'] ?? '');
+        $borrado = con_base('confirmados', function (array &$lista) use ($id) {
+            $j = indice($lista, $id);
+            if ($j < 0) return false;
+            array_splice($lista, $j, 1);
+            return true;
+        });
+        if (!$borrado) fallar('No existe una confirmación con ese código.', 404);
+        responder(['ok' => true, 'id' => $id]);
 
     case 'actualizar_mesa':
         requiere_admin();

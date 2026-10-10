@@ -1,5 +1,5 @@
 // admin.js — Utilidades compartidas por las páginas de administración
-// (registro, confirmados, mesas, mesaconfirmados, panel y control_formulario).
+// (registro, confirmados, mesas, mesaconfirmados, panel, control_formulario y escaner).
 
 const API_URL = 'api.php';
 const CLAVE_STORAGE = 'invitaciones_clave_admin';
@@ -164,4 +164,17 @@ function agruparPorMesa(registros) {
         return a.localeCompare(b);
     });
     return { mesas, orden, sinMesa };
+}
+
+// Fechas de api.php ("2026-10-06 14:30:00") -> "6 oct 2026, 14:30"
+function aFecha(valor) {
+    const d = new Date(String(valor || '').replace(' ', 'T'));
+    return isNaN(d) ? null : d;
+}
+
+function fechaLarga(valor, conAnio = false) {
+    const d = aFecha(valor);
+    const opciones = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+    if (conAnio) opciones.year = 'numeric';
+    return d ? d.toLocaleString('es-MX', opciones) : String(valor || '');
 }
